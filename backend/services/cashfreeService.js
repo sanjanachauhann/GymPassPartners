@@ -1,16 +1,49 @@
 import axios from "axios";
+import dotenv from "dotenv";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+dotenv.config({
+  path: path.resolve(__dirname, "../.env"),
+});
 
 const CASHFREE_BASE_URL =
   process.env.CASHFREE_ENV === "PRODUCTION"
     ? "https://api.cashfree.com/pg"
     : "https://sandbox.cashfree.com/pg";
 
-const getCashfreeHeaders = () => ({
-  "Content-Type": "application/json",
-  "x-client-id": process.env.EXPO_PUBLIC_CASHFREE_CLIENT_ID,
-  "x-client-secret": process.env.EXPO_PUBLIC_CASHFREE_CLIENT_SECRET,
-  "x-api-version": "2023-08-01",
-});
+const getCashfreeHeaders = () => {
+  const clientId = process.env.CASHFREE_CLIENT_ID;
+  const clientSecret = process.env.CASHFREE_CLIENT_SECRET;
+
+  if (!clientId || !clientSecret) {
+    throw new Error("Cashfree credentials missing. Check backend/.env");
+  }
+
+  return {
+    "Content-Type": "application/json",
+    "x-client-id": clientId,
+    "x-client-secret": clientSecret,
+    "x-api-version": "2023-08-01",
+  };
+};
+
+// import axios from "axios";
+
+// const CASHFREE_BASE_URL =
+//   process.env.CASHFREE_ENV === "PRODUCTION"
+//     ? "https://api.cashfree.com/pg"
+//     : "https://sandbox.cashfree.com/pg";
+
+// const getCashfreeHeaders = () => ({
+//   "Content-Type": "application/json",
+//   "x-client-id": process.env.CASHFREE_CLIENT_ID,
+//   "x-client-secret": process.env.CASHFREE_CLIENT_SECRET,
+//   "x-api-version": "2023-08-01",
+// });
 
 // export const createOrder = async ({
 //   orderId,
@@ -19,7 +52,6 @@ const getCashfreeHeaders = () => ({
 //   customerEmail,
 //   customerPhone,
 // }) => {
-//   console.log("reachedhiefjvor vor");
 //   const { data } = await axios.post(
 //     `${CASHFREE_BASE_URL}/orders`,
 //     {
@@ -86,17 +118,6 @@ export const createVendor = async ({
   phoneNumber,
   panNumber,
 }) => {
-  console.log("Backend ENV check:");
-  console.log(
-    "Cashfree client ID:",
-    process.env.EXPO_PUBLIC_CASHFREE_CLIENT_ID,
-  );
-  console.log(
-    "Cashfree secret exists:",
-    process.env.EXPO_PUBLIC_CASHFREE_CLIENT_SECRET,
-  );
-
-  console.log(phoneNumber);
   const { data } = await axios.post(
     `${CASHFREE_BASE_URL}/easy-split/vendors`,
     {
