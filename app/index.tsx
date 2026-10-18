@@ -110,11 +110,32 @@ export default function Index() {
             return;
           }
 
+          // if (request.status === "rejected") {
+          //   // router.replace("/request-success");
+          //   Alert.alert(
+          //     "Your request has been rejected. Kindly contact helpdesk.",
+          //   );
+
+          //   return;
+          // }
+
           if (request.status === "rejected") {
-            // router.replace("/request-success");
+            // Clear the rejected registration request
+            await AsyncStorage.removeItem("gymRequest");
+            await AsyncStorage.removeItem("pendingPartner");
+            await AsyncStorage.removeItem("lastActivatedPartner");
+
             Alert.alert(
-              "Your request has been rejected. Kindly contact helpdesk.",
+              "Application Rejected",
+              "Your gym registration request was rejected. Please contact the helpdesk for assistance.",
+              [
+                {
+                  text: "OK",
+                  onPress: () => router.replace("/login"),
+                },
+              ],
             );
+
             return;
           }
         }

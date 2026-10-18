@@ -31,50 +31,6 @@ const getCashfreeHeaders = () => {
   };
 };
 
-// import axios from "axios";
-
-// const CASHFREE_BASE_URL =
-//   process.env.CASHFREE_ENV === "PRODUCTION"
-//     ? "https://api.cashfree.com/pg"
-//     : "https://sandbox.cashfree.com/pg";
-
-// const getCashfreeHeaders = () => ({
-//   "Content-Type": "application/json",
-//   "x-client-id": process.env.CASHFREE_CLIENT_ID,
-//   "x-client-secret": process.env.CASHFREE_CLIENT_SECRET,
-//   "x-api-version": "2023-08-01",
-// });
-
-// export const createOrder = async ({
-//   orderId,
-//   amount,
-//   customerName,
-//   customerEmail,
-//   customerPhone,
-// }) => {
-//   const { data } = await axios.post(
-//     `${CASHFREE_BASE_URL}/orders`,
-//     {
-//       order_id: orderId,
-//       order_amount: amount,
-//       order_currency: "INR",
-//       customer_details: {
-//         customer_id: customerPhone,
-//         customer_name: customerName,
-//         customer_email: customerEmail,
-//         customer_phone: customerPhone,
-//       },
-//       order_meta: {
-//         return_url: `${process.env.BACKEND_URL}/payment/cashfree/return?order_id={order_id}`,
-//         notify_url: `${process.env.BACKEND_URL}/payment/cashfree/webhook`,
-//       },
-//     },
-//     {
-//       headers: getCashfreeHeaders(),
-//     },
-//   );
-//   return data;
-// };
 export const createOrder = async ({
   orderId,
   amount,
@@ -110,6 +66,53 @@ export const fetchOrder = async (orderId) => {
   return data;
 };
 
+// export const createVendor = async ({
+//   vendorId,
+//   name,
+//   email,
+//   bank,
+//   phoneNumber,
+//   panNumber,
+// }) => {
+//   const { data } = await axios.post(
+//     `${CASHFREE_BASE_URL}/easy-split/vendors`,
+//     {
+//       vendor_id: vendorId,
+//       status: "ACTIVE",
+//       name,
+//       email,
+//       phone: phoneNumber, // Hardcoded phone
+//       verify_account: true,
+//       dashboard_access: false,
+//       schedule_option: 1,
+
+//       bank: {
+//         account_number: bank.accountNumber,
+//         account_holder: bank.accountHolder,
+//         ifsc: bank.ifsc,
+//       },
+
+//       kyc_details: {
+//         account_type: "Individual",
+//         business_type: "Travel and Hospitality",
+//         pan: panNumber,
+//       },
+//     },
+//     { headers: getCashfreeHeaders() },
+//   );
+
+//   return data;
+// };
+
+// export const fetchVendor = async (vendorId) => {
+//   const { data } = await axios.get(
+//     `${CASHFREE_BASE_URL}/easy-split/vendors/${vendorId}`,
+//     { headers: getCashfreeHeaders() },
+//   );
+//   return data;
+// };
+// Add/replace these functions in backend/services/cashfreeService.js
+
 export const createVendor = async ({
   vendorId,
   name,
@@ -125,17 +128,15 @@ export const createVendor = async ({
       status: "ACTIVE",
       name,
       email,
-      phone: phoneNumber, // Hardcoded phone
+      phone: String(phoneNumber),
       verify_account: true,
       dashboard_access: false,
       schedule_option: 1,
-
       bank: {
         account_number: bank.accountNumber,
         account_holder: bank.accountHolder,
         ifsc: bank.ifsc,
       },
-
       kyc_details: {
         account_type: "Individual",
         business_type: "Travel and Hospitality",
@@ -150,8 +151,60 @@ export const createVendor = async ({
 
 export const fetchVendor = async (vendorId) => {
   const { data } = await axios.get(
-    `${CASHFREE_BASE_URL}/easy-split/vendors/${vendorId}`,
+    `${CASHFREE_BASE_URL}/easy-split/vendors/${encodeURIComponent(vendorId)}`,
     { headers: getCashfreeHeaders() },
   );
+
+  return data;
+};
+
+export const updateVendor = async (vendorId, details) => {
+  const { data } = await axios.patch(
+    `${CASHFREE_BASE_URL}/easy-split/vendors/${encodeURIComponent(vendorId)}`,
+    {
+      status: "ACTIVE",
+      name: details.name,
+      email: details.email,
+      phone: String(details.phoneNumber),
+      verify_account: true,
+      dashboard_access: false,
+      schedule_option: 1,
+      bank: [
+        {
+          account_number: details.accountNumber,
+          account_holder: details.accountHolder,
+          ifsc: details.ifsc,
+        },
+      ],
+      kyc_details: [
+        {
+          account_type: "Individual",
+          business_type: "Travel and Hospitality",
+          pan: details.panNumber,
+        },
+      ],
+    },
+    { headers: getCashfreeHeaders() },
+  );
+
+  return data;
+};
+
+export const markVendorDeleted = async (vendorId, vendor) => {
+  // Use the existing vendor's details; do not send fabricated bank/KYC data.
+  const { data } = await axios.put(
+    `${CASHFREE_BASE_URL}/easy-split/vendors/${encodeURIComponent(vendorId)}`,
+    {
+      status: "DELETED",
+      name: vendor.name,
+      email: vendor.email,
+      phone: String(vendor.phone),
+      schedule_option: vendor.schedule_option ?? 1,
+      ...(vendor.bank && { bank: vendor.bank }),
+      ...(vendor.kyc_details && { kyc_details: vendor.kyc_details }),
+    },
+    { headers: getCashfreeHeaders() },
+  );
+
   return data;
 };

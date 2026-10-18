@@ -1,703 +1,3 @@
-import {
-  getCashfreeVendorStatusApi,
-  setupCashfreeVendorApi,
-} from "@/backend/services/paymentService";
-import { useAuth } from "@/context/AuthContext";
-import { useGym } from "@/context/GymContext";
-import { Ionicons } from "@expo/vector-icons";
-import { useEffect, useState } from "react";
-import {
-  ActivityIndicator,
-  Alert,
-  KeyboardAvoidingView,
-  Platform,
-  ScrollView,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  View,
-} from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
-
-type PaymentStatus = "NOT_CONNECTED" | "PENDING" | "ACTIVE" | "REJECTED";
-
-export default function SetUpPayment() {
-  const { gym } = useGym();
-  const { user } = useAuth();
-
-  const [loading, setLoading] = useState(true);
-  const [connecting, setConnecting] = useState(false);
-
-  const [status, setStatus] = useState<PaymentStatus>("NOT_CONNECTED");
-
-  const [accountHolder, setAccountHolder] = useState("");
-  const [accountNumber, setAccountNumber] = useState("");
-  const [ifsc, setIfsc] = useState("");
-  const [panNumber, setPanNumber] = useState("");
-
-  /*
-   * Convert Cashfree status into our UI status.
-   */
-  const mapCashfreeStatus = (cfStatus?: string): PaymentStatus => {
-    switch (cfStatus) {
-      case "ACTIVE":
-        return "ACTIVE";
-
-      case "IN_BENE_CREATION":
-      case "PENDING":
-      case "UNDER_REVIEW":
-        return "PENDING";
-
-      case "REJECTED":
-        return "REJECTED";
-
-      default:
-        return "NOT_CONNECTED";
-    }
-  };
-
-  /*
-   * Load the real vendor status from Cashfree.
-   */
-  const loadPaymentStatus = async () => {
-    try {
-      setLoading(true);
-
-      if (!gym?._id) {
-        setStatus("NOT_CONNECTED");
-        return;
-      }
-
-      console.log("Checking Cashfree vendor for gym:", gym._id);
-
-      const response = await getCashfreeVendorStatusApi(gym._id);
-
-      console.log("Cashfree vendor status:", response);
-
-      if (!response?.success) {
-        setStatus("NOT_CONNECTED");
-        return;
-      }
-
-      setStatus(mapCashfreeStatus(response.status));
-    } catch (error: any) {
-      console.log(
-        "Cashfree vendor status error:",
-        error?.response?.data || error?.message || error,
-      );
-
-      setStatus("NOT_CONNECTED");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  /*
-   * Check Cashfree whenever the gym becomes available.
-   */
-  useEffect(() => {
-    if (gym?._id) {
-      loadPaymentStatus();
-    }
-  }, [gym?._id]);
-
-  /*
-   * Submit bank details.
-   */
-  const submitBankDetails = async () => {
-    if (connecting) return;
-
-    if (!gym?._id) {
-      Alert.alert(
-        "Something went wrong",
-        "Gym information is not available. Please try again.",
-      );
-      return;
-    }
-
-    if (
-      !accountHolder.trim() ||
-      !accountNumber.trim() ||
-      !ifsc.trim() ||
-      !panNumber.trim()
-    ) {
-      Alert.alert(
-        "Missing details",
-        "Please fill in all the required details.",
-      );
-      return;
-    }
-
-    try {
-      setConnecting(true);
-
-      console.log("Setting up Cashfree vendor for gym:", gym._id);
-
-      const response = await setupCashfreeVendorApi(gym._id, {
-        accountHolder: accountHolder.trim(),
-
-        accountNumber: accountNumber.trim(),
-
-        ifsc: ifsc.trim().toUpperCase(),
-
-        panNumber: panNumber.trim().toUpperCase(),
-
-        name: gym.gymName,
-
-        email: user?.email,
-
-        phoneNumber: user?.phone,
-      });
-
-      console.log("Cashfree vendor response:", response);
-
-      /*
-       * Keep the raw Cashfree error visible.
-       */
-      if (!response?.success) {
-        const message =
-          response?.message || "Unable to set up your payout account.";
-
-        Alert.alert("Payment setup failed", String(message));
-
-        return;
-      }
-
-      /*
-       * Update status immediately.
-       */
-      setStatus(mapCashfreeStatus(response.vendorStatus));
-
-      /*
-       * Clear the form.
-       */
-      setAccountHolder("");
-      setAccountNumber("");
-      setIfsc("");
-      setPanNumber("");
-
-      Alert.alert("Details submitted", "Your bank account is being verified.");
-
-      /*
-       * Refresh the real Cashfree status.
-       */
-      await loadPaymentStatus();
-    } catch (error: any) {
-      const rawError = error?.response?.data || error?.message || error;
-
-      console.log("Cashfree vendor setup error:", rawError);
-
-      const message =
-        error?.response?.data?.message ||
-        error?.message ||
-        "Unable to set up your payout account.";
-
-      Alert.alert("Payment setup failed", String(message));
-    } finally {
-      setConnecting(false);
-    }
-  };
-
-  /*
-   * Status configuration.
-   */
-  const getStatusConfig = () => {
-    switch (status) {
-      case "ACTIVE":
-        return {
-          icon: "checkmark-circle",
-          iconColor: "#23ee09",
-          background: "#0D1A0C",
-          title: "Account connected",
-          subtitle:
-            "Your bank account is connected and ready to receive payments.",
-        };
-
-      case "PENDING":
-        return {
-          icon: "time-outline",
-          iconColor: "#ffaa00",
-          background: "#1A1508",
-          title: "Verification pending",
-          subtitle: "Your bank account is currently being verified.",
-        };
-
-      case "REJECTED":
-        return {
-          icon: "alert-circle-outline",
-          iconColor: "#ff4444",
-          background: "#1A0C0C",
-          title: "Verification failed",
-          subtitle:
-            "Your payout account could not be verified. Please check your details and try again.",
-        };
-
-      default:
-        return null;
-    }
-  };
-
-  const statusConfig = getStatusConfig();
-
-  return (
-    <SafeAreaView
-      edges={["top", "bottom"]}
-      style={{
-        flex: 1,
-        backgroundColor: "#050505",
-      }}
-    >
-      <KeyboardAvoidingView
-        style={{
-          flex: 1,
-        }}
-        behavior={Platform.OS === "ios" ? "padding" : "height"}
-      >
-        <ScrollView
-          keyboardShouldPersistTaps="handled"
-          showsVerticalScrollIndicator={false}
-          contentContainerStyle={{
-            paddingHorizontal: 20,
-            paddingBottom: 30,
-          }}
-        >
-          {/* BACK BUTTON
-
-          <TouchableOpacity
-            onPress={() => router.back()}
-            activeOpacity={0.8}
-            style={{
-              width: 42,
-              height: 42,
-              borderRadius: 21,
-              backgroundColor: "#111",
-              alignItems: "center",
-              justifyContent: "center",
-              marginTop: 8,
-            }}
-          >
-            <Ionicons name="chevron-back" size={23} color="white" />
-          </TouchableOpacity> */}
-
-          {/* HEADER */}
-
-          <View style={{ marginTop: "10%" }}>
-            <Text
-              style={{
-                color: "#FFFFFF",
-                fontSize: 26,
-                fontWeight: "700",
-                letterSpacing: -0.7,
-              }}
-            >
-              Payouts
-            </Text>
-
-            <Text
-              style={{
-                color: "#666",
-                fontSize: 15,
-                lineHeight: 21,
-                marginTop: 7,
-              }}
-            >
-              Manage your payment account.
-            </Text>
-          </View>
-
-          {/* STATUS CARD */}
-
-          {status !== "NOT_CONNECTED" && statusConfig && (
-            <View
-              style={{
-                marginTop: 30,
-                backgroundColor: statusConfig.background,
-                borderRadius: 20,
-                padding: 20,
-                borderWidth: 1,
-                borderColor: "#202020",
-              }}
-            >
-              <View
-                style={{
-                  flexDirection: "row",
-                  alignItems: "center",
-                }}
-              >
-                <View
-                  style={{
-                    width: 52,
-                    height: 52,
-                    borderRadius: 26,
-                    backgroundColor: "#181818",
-                    alignItems: "center",
-                    justifyContent: "center",
-                  }}
-                >
-                  <Ionicons
-                    name={statusConfig.icon as any}
-                    size={27}
-                    color={statusConfig.iconColor}
-                  />
-                </View>
-
-                <View
-                  style={{
-                    flex: 1,
-                    marginLeft: 14,
-                  }}
-                >
-                  <Text
-                    style={{
-                      color: "#FFFFFF",
-                      fontSize: 17,
-                      fontWeight: "700",
-                    }}
-                  >
-                    {statusConfig.title}
-                  </Text>
-
-                  <Text
-                    style={{
-                      color: "#777",
-                      fontSize: 13,
-                      lineHeight: 19,
-                      marginTop: 4,
-                    }}
-                  >
-                    {statusConfig.subtitle}
-                  </Text>
-                </View>
-              </View>
-
-              {status === "ACTIVE" && (
-                <View
-                  style={{
-                    marginTop: 18,
-                    paddingTop: 16,
-                    borderTopWidth: 1,
-                    borderTopColor: "#222",
-                    flexDirection: "row",
-                    alignItems: "center",
-                  }}
-                >
-                  <View
-                    style={{
-                      width: 8,
-                      height: 8,
-                      borderRadius: 4,
-                      backgroundColor: "#23ee09",
-                    }}
-                  />
-
-                  <Text
-                    style={{
-                      color: "#999",
-                      fontSize: 13,
-                      marginLeft: 9,
-                    }}
-                  >
-                    Payments can be received
-                  </Text>
-                </View>
-              )}
-            </View>
-          )}
-
-          {/* FORM */}
-
-          {status !== "ACTIVE" && (
-            <View
-              style={{
-                marginTop: 28,
-              }}
-            >
-              <Text
-                style={{
-                  color: "#FFFFFF",
-                  fontSize: 19,
-                  fontWeight: "700",
-                  marginBottom: 5,
-                }}
-              >
-                Bank details
-              </Text>
-
-              <Text
-                style={{
-                  color: "#666",
-                  fontSize: 13,
-                  lineHeight: 19,
-                  marginBottom: 18,
-                }}
-              >
-                Enter the bank details associated with your payout account.
-              </Text>
-
-              {/* ACCOUNT HOLDER */}
-
-              <Text
-                style={{
-                  color: "#888",
-                  fontSize: 12,
-                  fontWeight: "600",
-                  marginBottom: 7,
-                  marginLeft: 2,
-                }}
-              >
-                ACCOUNT HOLDER NAME
-              </Text>
-
-              <TextInput
-                placeholder="Enter account holder name"
-                placeholderTextColor="#555"
-                value={accountHolder}
-                onChangeText={setAccountHolder}
-                autoCapitalize="words"
-                returnKeyType="next"
-                editable={!connecting}
-                style={{
-                  height: 54,
-                  backgroundColor: "#111",
-                  color: "#FFFFFF",
-                  borderRadius: 14,
-                  paddingHorizontal: 16,
-                  fontSize: 15,
-                  borderWidth: 1,
-                  borderColor: "#222",
-                  marginBottom: 16,
-                }}
-              />
-
-              {/* ACCOUNT NUMBER */}
-
-              <Text
-                style={{
-                  color: "#888",
-                  fontSize: 12,
-                  fontWeight: "600",
-                  marginBottom: 7,
-                  marginLeft: 2,
-                }}
-              >
-                ACCOUNT NUMBER
-              </Text>
-
-              <TextInput
-                placeholder="Enter account number"
-                placeholderTextColor="#555"
-                value={accountNumber}
-                onChangeText={setAccountNumber}
-                keyboardType="number-pad"
-                returnKeyType="next"
-                editable={!connecting}
-                secureTextEntry={false}
-                style={{
-                  height: 54,
-                  backgroundColor: "#111",
-                  color: "#FFFFFF",
-                  borderRadius: 14,
-                  paddingHorizontal: 16,
-                  fontSize: 15,
-                  borderWidth: 1,
-                  borderColor: "#222",
-                  marginBottom: 16,
-                }}
-              />
-
-              {/* IFSC */}
-
-              <Text
-                style={{
-                  color: "#888",
-                  fontSize: 12,
-                  fontWeight: "600",
-                  marginBottom: 7,
-                  marginLeft: 2,
-                }}
-              >
-                IFSC CODE
-              </Text>
-
-              <TextInput
-                placeholder="Enter IFSC code"
-                placeholderTextColor="#555"
-                value={ifsc}
-                onChangeText={setIfsc}
-                autoCapitalize="characters"
-                autoCorrect={false}
-                returnKeyType="next"
-                editable={!connecting}
-                maxLength={11}
-                style={{
-                  height: 54,
-                  backgroundColor: "#111",
-                  color: "#FFFFFF",
-                  borderRadius: 14,
-                  paddingHorizontal: 16,
-                  fontSize: 15,
-                  borderWidth: 1,
-                  borderColor: "#222",
-                  marginBottom: 16,
-                }}
-              />
-
-              {/* PAN */}
-
-              <Text
-                style={{
-                  color: "#888",
-                  fontSize: 12,
-                  fontWeight: "600",
-                  marginBottom: 7,
-                  marginLeft: 2,
-                }}
-              >
-                PAN NUMBER
-              </Text>
-
-              <TextInput
-                placeholder="Enter PAN number"
-                placeholderTextColor="#555"
-                value={panNumber}
-                onChangeText={setPanNumber}
-                autoCapitalize="characters"
-                autoCorrect={false}
-                returnKeyType="done"
-                editable={!connecting}
-                maxLength={10}
-                style={{
-                  height: 54,
-                  backgroundColor: "#111",
-                  color: "#FFFFFF",
-                  borderRadius: 14,
-                  paddingHorizontal: 16,
-                  fontSize: 15,
-                  borderWidth: 1,
-                  borderColor: "#222",
-                  marginBottom: 22,
-                }}
-              />
-
-              {/* ADD BANK ACCOUNT */}
-
-              <TouchableOpacity
-                onPress={submitBankDetails}
-                disabled={connecting}
-                activeOpacity={0.85}
-                style={{
-                  height: 56,
-                  borderRadius: 16,
-                  backgroundColor: connecting ? "#151515" : "#23ee09",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  flexDirection: "row",
-                }}
-              >
-                {connecting ? (
-                  <>
-                    <ActivityIndicator size="small" color="#23ee09" />
-
-                    <Text
-                      style={{
-                        color: "#777",
-                        fontSize: 15,
-                        fontWeight: "700",
-                        marginLeft: 9,
-                      }}
-                    >
-                      Verifying...
-                    </Text>
-                  </>
-                ) : (
-                  <>
-                    <Ionicons name="card-outline" size={20} color="#050505" />
-
-                    <Text
-                      style={{
-                        color: "#050505",
-                        fontSize: 16,
-                        fontWeight: "700",
-                        marginLeft: 8,
-                      }}
-                    >
-                      Add Bank Account
-                    </Text>
-                  </>
-                )}
-              </TouchableOpacity>
-
-              {/* SECURITY NOTE */}
-
-              <View
-                style={{
-                  flexDirection: "row",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  marginTop: 17,
-                }}
-              >
-                <Ionicons name="lock-closed-outline" size={14} color="#555" />
-
-                <Text
-                  style={{
-                    color: "#555",
-                    fontSize: 12,
-                    marginLeft: 6,
-                  }}
-                >
-                  Your bank details are securely verified.
-                </Text>
-              </View>
-            </View>
-          )}
-
-          {/* PENDING MESSAGE */}
-
-          {status === "PENDING" && (
-            <View
-              style={{
-                marginTop: 20,
-                padding: 16,
-                backgroundColor: "#0D0D0D",
-                borderRadius: 14,
-                borderWidth: 1,
-                borderColor: "#202020",
-              }}
-            >
-              <View
-                style={{
-                  flexDirection: "row",
-                  alignItems: "flex-start",
-                }}
-              >
-                <Ionicons
-                  name="information-circle-outline"
-                  size={19}
-                  color="#777"
-                />
-
-                <Text
-                  style={{
-                    flex: 1,
-                    color: "#777",
-                    fontSize: 13,
-                    lineHeight: 19,
-                    marginLeft: 9,
-                  }}
-                >
-                  Your payout account is being verified. You can leave this
-                  screen and return later to check the latest status.
-                </Text>
-              </View>
-            </View>
-          )}
-        </ScrollView>
-      </KeyboardAvoidingView>
-    </SafeAreaView>
-  );
-}
-
 // import {
 //   getCashfreeVendorStatusApi,
 //   setupCashfreeVendorApi,
@@ -705,15 +5,11 @@ export default function SetUpPayment() {
 // import { useAuth } from "@/context/AuthContext";
 // import { useGym } from "@/context/GymContext";
 // import { Ionicons } from "@expo/vector-icons";
-// import { router } from "expo-router";
 // import { useEffect, useState } from "react";
 // import {
 //   ActivityIndicator,
 //   Alert,
-//   BackHandler,
-//   Keyboard,
 //   KeyboardAvoidingView,
-//   Modal,
 //   Platform,
 //   ScrollView,
 //   Text,
@@ -734,50 +30,13 @@ export default function SetUpPayment() {
 
 //   const [status, setStatus] = useState<PaymentStatus>("NOT_CONNECTED");
 
-//   const [gymName, setGymName] = useState("");
-
-//   // Bank form
-//   const [showBankForm, setShowBankForm] = useState(false);
 //   const [accountHolder, setAccountHolder] = useState("");
 //   const [accountNumber, setAccountNumber] = useState("");
 //   const [ifsc, setIfsc] = useState("");
 //   const [panNumber, setPanNumber] = useState("");
 
-//   // Error modal
-//   const [errorModalVisible, setErrorModalVisible] = useState(false);
-//   const [errorTitle, setErrorTitle] = useState("");
-//   const [errorMessage, setErrorMessage] = useState("");
-
-//   useEffect(() => {
-//     loadPaymentStatus();
-//   }, []);
-
-//   useEffect(() => {
-//     const backHandler = BackHandler.addEventListener(
-//       "hardwareBackPress",
-//       () => {
-//         // If error modal is open, close it first
-//         if (errorModalVisible) {
-//           setErrorModalVisible(false);
-//           return true;
-//         }
-
-//         // If bank form is open, close it first
-//         if (showBankForm) {
-//           Keyboard.dismiss();
-//           setShowBankForm(false);
-//           return true;
-//         }
-
-//         // Otherwise allow normal navigation
-//         return false;
-//       },
-//     );
-
-//     return () => backHandler.remove();
-//   }, [showBankForm, errorModalVisible]);
 //   /*
-//    * Convert Cashfree's status into the status used by our UI.
+//    * Convert Cashfree status into our UI status.
 //    */
 //   const mapCashfreeStatus = (cfStatus?: string): PaymentStatus => {
 //     switch (cfStatus) {
@@ -785,6 +44,8 @@ export default function SetUpPayment() {
 //         return "ACTIVE";
 
 //       case "IN_BENE_CREATION":
+//       case "PENDING":
+//       case "UNDER_REVIEW":
 //         return "PENDING";
 
 //       case "REJECTED":
@@ -796,28 +57,7 @@ export default function SetUpPayment() {
 //   };
 
 //   /*
-//    * Show our custom error modal.
-//    */
-//   const showPaymentError = (error: any) => {
-//     console.log(
-//       "Raw payment error:",
-//       error?.response?.data || error?.message || error,
-//     );
-
-//     const backendError = error?.response?.data;
-
-//     const message =
-//       backendError?.message ||
-//       error?.message ||
-//       "Unable to set up your payout account.";
-
-//     setErrorTitle("Payment setup couldn't be completed");
-//     setErrorMessage(String(message));
-//     setErrorModalVisible(true);
-//   };
-
-//   /*
-//    * Load current payout account status.
+//    * Load the real vendor status from Cashfree.
 //    */
 //   const loadPaymentStatus = async () => {
 //     try {
@@ -839,94 +79,52 @@ export default function SetUpPayment() {
 //         return;
 //       }
 
-//       /*
-//        * Cashfree is the source of truth.
-//        */
-//       const cashfreeStatus = response.status;
-
-//       setStatus(mapCashfreeStatus(cashfreeStatus));
+//       setStatus(mapCashfreeStatus(response.status));
 //     } catch (error: any) {
 //       console.log(
 //         "Cashfree vendor status error:",
 //         error?.response?.data || error?.message || error,
 //       );
 
-//       /*
-//        * If we cannot confirm that a vendor exists,
-//        * don't incorrectly show it as connected.
-//        */
 //       setStatus("NOT_CONNECTED");
 //     } finally {
 //       setLoading(false);
 //     }
 //   };
-//   // const loadPaymentStatus = async () => {
-//   //   try {
-//   //     setLoading(true);
-
-//   //     const gymData = await AsyncStorage.getItem("user");
-
-//   //     if (gymData) {
-//   //       const storedGym = JSON.parse(gymData);
-
-//   //       console.log(storedGym, "this is gym data");
-
-//   //       setGymName(storedGym.gymName || "Your Gym");
-
-//   //       setStatus(mapCashfreeStatus(storedGym.payoutAccountStatus));
-//   //     }
-
-//   //     /*
-//   //      * Get the latest status from backend.
-//   //      */
-//   //     if (gym?._id) {
-//   //       const response = await getCashfreeVendorStatusApi(gym._id);
-
-//   //       console.log("Cashfree status response:", response);
-
-//   //       if (response?.success) {
-//   //         setStatus(mapCashfreeStatus(response.status));
-//   //       }
-//   //     }
-//   //   } catch (error) {
-//   //     console.log("Load payment status error:", error);
-//   //   } finally {
-//   //     setLoading(false);
-//   //   }
-//   // };
 
 //   /*
-//    * Submit bank details to Cashfree.
+//    * Check Cashfree whenever the gym becomes available.
+//    */
+//   useEffect(() => {
+//     if (gym?._id) {
+//       loadPaymentStatus();
+//     }
+//   }, [gym?._id]);
+
+//   /*
+//    * Submit bank details.
 //    */
 //   const submitBankDetails = async () => {
 //     if (connecting) return;
 
-//     /*
-//      * Make sure gym exists.
-//      */
 //     if (!gym?._id) {
-//       setErrorTitle("Gym information missing");
-//       setErrorMessage(
-//         "We couldn't find your gym information. Please go back and try again.",
+//       Alert.alert(
+//         "Something went wrong",
+//         "Gym information is not available. Please try again.",
 //       );
-//       setErrorModalVisible(true);
 //       return;
 //     }
 
-//     /*
-//      * Validate form.
-//      */
 //     if (
 //       !accountHolder.trim() ||
 //       !accountNumber.trim() ||
 //       !ifsc.trim() ||
 //       !panNumber.trim()
 //     ) {
-//       setErrorTitle("Missing details");
-//       setErrorMessage(
-//         "Please fill in all the bank and verification details before continuing.",
+//       Alert.alert(
+//         "Missing details",
+//         "Please fill in all the required details.",
 //       );
-//       setErrorModalVisible(true);
 //       return;
 //     }
 
@@ -954,107 +152,92 @@ export default function SetUpPayment() {
 //       console.log("Cashfree vendor response:", response);
 
 //       /*
-//        * Backend returned success:false
-//        *
-//        * Convert the response into the same
-//        * format used by our error handler.
+//        * Keep the raw Cashfree error visible.
 //        */
 //       if (!response?.success) {
-//         showPaymentError({
-//           response: {
-//             data: response,
-//           },
-//         });
+//         const message =
+//           response?.message || "Unable to set up your payout account.";
+
+//         Alert.alert("Payment setup failed", String(message));
 
 //         return;
 //       }
 
 //       /*
-//        * Update status.
+//        * Update status immediately.
 //        */
 //       setStatus(mapCashfreeStatus(response.vendorStatus));
 
 //       /*
-//        * Close bank form.
-//        */
-//       setShowBankForm(false);
-
-//       /*
-//        * Clear entered bank details.
+//        * Clear the form.
 //        */
 //       setAccountHolder("");
 //       setAccountNumber("");
 //       setIfsc("");
 //       setPanNumber("");
 
-//       /*
-//        * Success message.
-//        */
-//       Alert.alert(
-//         "Details submitted",
-//         "Your bank account is being verified. This usually takes a few minutes.",
-//         [
-//           {
-//             text: "Okay",
-//             style: "default",
-//           },
-//         ],
-//       );
-//     } catch (error: any) {
-//       /*
-//        * Keep the raw error in console for development.
-//        */
-//       console.log(
-//         "Cashfree vendor setup error:",
-//         error?.response?.data || error?.message || error,
-//       );
+//       Alert.alert("Details submitted", "Your bank account is being verified.");
 
 //       /*
-//        * Show clean user-facing message.
+//        * Refresh the real Cashfree status.
 //        */
-//       showPaymentError(error);
+//       await loadPaymentStatus();
+//     } catch (error: any) {
+//       const rawError = error?.response?.data || error?.message || error;
+
+//       console.log("Cashfree vendor setup error:", rawError);
+
+//       const message =
+//         error?.response?.data?.message ||
+//         error?.message ||
+//         "Unable to set up your payout account.";
+
+//       Alert.alert("Payment setup failed", String(message));
 //     } finally {
 //       setConnecting(false);
 //     }
 //   };
 
 //   /*
-//    * Status text.
+//    * Status configuration.
 //    */
-//   const getStatusText = () => {
+//   const getStatusConfig = () => {
 //     switch (status) {
 //       case "ACTIVE":
-//         return "Payout account connected";
+//         return {
+//           icon: "checkmark-circle",
+//           iconColor: "#23ee09",
+//           background: "#0D1A0C",
+//           title: "Account connected",
+//           subtitle:
+//             "Your bank account is connected and ready to receive payments.",
+//         };
 
 //       case "PENDING":
-//         return "Verification pending";
+//         return {
+//           icon: "time-outline",
+//           iconColor: "#ffaa00",
+//           background: "#1A1508",
+//           title: "Verification pending",
+//           subtitle: "Your bank account is currently being verified.",
+//         };
 
 //       case "REJECTED":
-//         return "Verification failed";
+//         return {
+//           icon: "alert-circle-outline",
+//           iconColor: "#ff4444",
+//           background: "#1A0C0C",
+//           title: "Verification failed",
+//           subtitle:
+//             "Your payout account could not be verified. Please check your details and try again.",
+//         };
 
 //       default:
-//         return "Payout account not connected";
+//         return null;
 //     }
 //   };
 
-//   /*
-//    * Status dot color.
-//    */
-//   const getStatusColor = () => {
-//     switch (status) {
-//       case "ACTIVE":
-//         return "#23ee09";
-
-//       case "REJECTED":
-//         return "#ff4444";
-
-//       case "PENDING":
-//         return "#ffaa00";
-
-//       default:
-//         return "#777";
-//     }
-//   };
+//   const statusConfig = getStatusConfig();
 
 //   return (
 //     <SafeAreaView
@@ -1064,605 +247,1206 @@ export default function SetUpPayment() {
 //         backgroundColor: "#050505",
 //       }}
 //     >
-//       {/* =========================
-//           MAIN CONTENT
-//       ========================== */}
-
-//       <View
+//       <KeyboardAvoidingView
 //         style={{
 //           flex: 1,
-//           paddingHorizontal: 20,
 //         }}
+//         behavior={Platform.OS === "ios" ? "padding" : "height"}
 //       >
-//         {/* BACK BUTTON */}
-
-//         <TouchableOpacity
-//           onPress={() => {
-//             if (showBankForm) {
-//               Keyboard.dismiss();
-//               setShowBankForm(false);
-//               return;
-//             }
-
-//             if (errorModalVisible) {
-//               setErrorModalVisible(false);
-//               return;
-//             }
-
-//             router.back();
-//           }}
-//           activeOpacity={0.8}
-//           style={{
-//             width: 42,
-//             height: 42,
-//             borderRadius: 21,
-//             backgroundColor: "#111",
-//             alignItems: "center",
-//             justifyContent: "center",
-//             marginTop: 8,
+//         <ScrollView
+//           keyboardShouldPersistTaps="handled"
+//           showsVerticalScrollIndicator={false}
+//           contentContainerStyle={{
+//             paddingHorizontal: 20,
+//             paddingBottom: 30,
 //           }}
 //         >
-//           <Ionicons name="chevron-back" size={23} color="white" />
-//         </TouchableOpacity>
+//           {/* BACK BUTTON
 
-//         {/* HEADER */}
-
-//         <View
-//           style={{
-//             marginTop: 35,
-//           }}
-//         >
-//           <Text
+//           <TouchableOpacity
+//             onPress={() => router.back()}
+//             activeOpacity={0.8}
 //             style={{
-//               color: "white",
-//               fontSize: 32,
-//               fontWeight: "700",
-//             }}
-//           >
-//             Payments
-//           </Text>
-
-//           <Text
-//             style={{
-//               color: "#777",
-//               fontSize: 15,
-//               lineHeight: 21,
+//               width: 42,
+//               height: 42,
+//               borderRadius: 21,
+//               backgroundColor: "#111",
+//               alignItems: "center",
+//               justifyContent: "center",
 //               marginTop: 8,
 //             }}
 //           >
-//             Add your bank account to receive payments from customers.
-//           </Text>
-//         </View>
+//             <Ionicons name="chevron-back" size={23} color="white" />
+//           </TouchableOpacity> */}
 
-//         {/* PAYMENT ACCOUNT CARD */}
+//           {/* HEADER */}
 
-//         <View
-//           style={{
-//             marginTop: 35,
-//             paddingVertical: 22,
-//             paddingHorizontal: 20,
-//             backgroundColor: "#111",
-//             borderRadius: 18,
-//           }}
-//         >
-//           <View
-//             style={{
-//               flexDirection: "row",
-//               alignItems: "center",
-//             }}
-//           >
-//             {/* ICON */}
-
-//             <View
+//           <View style={{ marginTop: "10%" }}>
+//             <Text
 //               style={{
-//                 width: 48,
-//                 height: 48,
-//                 borderRadius: 24,
-//                 backgroundColor: "#1A1A1A",
-//                 alignItems: "center",
-//                 justifyContent: "center",
+//                 color: "#FFFFFF",
+//                 fontSize: 26,
+//                 fontWeight: "700",
+//                 letterSpacing: -0.7,
 //               }}
 //             >
-//               <Ionicons name="card-outline" size={23} color="#23ee09" />
-//             </View>
+//               Payouts
+//             </Text>
 
-//             {/* GYM NAME */}
+//             <Text
+//               style={{
+//                 color: "#666",
+//                 fontSize: 15,
+//                 lineHeight: 21,
+//                 marginTop: 7,
+//               }}
+//             >
+//               Manage your payment account.
+//             </Text>
+//           </View>
 
+//           {/* STATUS CARD */}
+
+//           {status !== "NOT_CONNECTED" && statusConfig && (
 //             <View
 //               style={{
-//                 flex: 1,
-//                 marginLeft: 14,
+//                 marginTop: 30,
+//                 backgroundColor: statusConfig.background,
+//                 borderRadius: 20,
+//                 padding: 20,
+//                 borderWidth: 1,
+//                 borderColor: "#202020",
+//               }}
+//             >
+//               <View
+//                 style={{
+//                   flexDirection: "row",
+//                   alignItems: "center",
+//                 }}
+//               >
+//                 <View
+//                   style={{
+//                     width: 52,
+//                     height: 52,
+//                     borderRadius: 26,
+//                     backgroundColor: "#181818",
+//                     alignItems: "center",
+//                     justifyContent: "center",
+//                   }}
+//                 >
+//                   <Ionicons
+//                     name={statusConfig.icon as any}
+//                     size={27}
+//                     color={statusConfig.iconColor}
+//                   />
+//                 </View>
+
+//                 <View
+//                   style={{
+//                     flex: 1,
+//                     marginLeft: 14,
+//                   }}
+//                 >
+//                   <Text
+//                     style={{
+//                       color: "#FFFFFF",
+//                       fontSize: 17,
+//                       fontWeight: "700",
+//                     }}
+//                   >
+//                     {statusConfig.title}
+//                   </Text>
+
+//                   <Text
+//                     style={{
+//                       color: "#777",
+//                       fontSize: 13,
+//                       lineHeight: 19,
+//                       marginTop: 4,
+//                     }}
+//                   >
+//                     {statusConfig.subtitle}
+//                   </Text>
+//                 </View>
+//               </View>
+
+//               {status === "ACTIVE" && (
+//                 <View
+//                   style={{
+//                     marginTop: 18,
+//                     paddingTop: 16,
+//                     borderTopWidth: 1,
+//                     borderTopColor: "#222",
+//                     flexDirection: "row",
+//                     alignItems: "center",
+//                   }}
+//                 >
+//                   <View
+//                     style={{
+//                       width: 8,
+//                       height: 8,
+//                       borderRadius: 4,
+//                       backgroundColor: "#23ee09",
+//                     }}
+//                   />
+
+//                   <Text
+//                     style={{
+//                       color: "#999",
+//                       fontSize: 13,
+//                       marginLeft: 9,
+//                     }}
+//                   >
+//                     Payments can be received
+//                   </Text>
+//                 </View>
+//               )}
+//             </View>
+//           )}
+
+//           {/* FORM */}
+
+//           {status !== "ACTIVE" && (
+//             <View
+//               style={{
+//                 marginTop: 28,
 //               }}
 //             >
 //               <Text
 //                 style={{
-//                   color: "white",
-//                   fontSize: 17,
-//                   fontWeight: "600",
+//                   color: "#FFFFFF",
+//                   fontSize: 19,
+//                   fontWeight: "700",
+//                   marginBottom: 5,
 //                 }}
-//                 numberOfLines={1}
 //               >
-//                 {gym?.gymName || gymName || "Your Gym"}
+//                 Bank details
 //               </Text>
 
 //               <Text
 //                 style={{
 //                   color: "#666",
 //                   fontSize: 13,
-//                   marginTop: 4,
+//                   lineHeight: 19,
+//                   marginBottom: 18,
 //                 }}
 //               >
-//                 Payment account
+//                 Enter the bank details associated with your payout account.
 //               </Text>
-//             </View>
-//           </View>
 
-//           {/* STATUS */}
+//               {/* ACCOUNT HOLDER */}
 
-//           <View
-//             style={{
-//               flexDirection: "row",
-//               alignItems: "center",
-//               marginTop: 20,
-//               paddingTop: 16,
-//               borderTopWidth: 1,
-//               borderTopColor: "#222",
-//             }}
-//           >
-//             <View
-//               style={{
-//                 width: 8,
-//                 height: 8,
-//                 borderRadius: 4,
-//                 backgroundColor: getStatusColor(),
-//               }}
-//             />
-
-//             <Text
-//               style={{
-//                 color: "#aaa",
-//                 fontSize: 14,
-//                 marginLeft: 9,
-//               }}
-//             >
-//               {getStatusText()}
-//             </Text>
-//           </View>
-//         </View>
-
-//         {/* INFO */}
-
-//         <View
-//           style={{
-//             marginTop: 18,
-//           }}
-//         >
-//           <Text
-//             style={{
-//               color: "#666",
-//               fontSize: 13,
-//               lineHeight: 20,
-//             }}
-//           >
-//             Your customers will pay for gym passes through GymPass. Payments
-//             will be settled directly to the bank account below.
-//           </Text>
-//         </View>
-//       </View>
-
-//       {/* =========================
-//           BOTTOM BUTTON
-//       ========================== */}
-
-//       <View
-//         style={{
-//           paddingHorizontal: 20,
-//           paddingTop: 10,
-//           paddingBottom: 8,
-//           backgroundColor: "#050505",
-//         }}
-//       >
-//         {loading ? (
-//           <ActivityIndicator size="small" color="#23ee09" />
-//         ) : (
-//           <TouchableOpacity
-//             onPress={() => setShowBankForm(true)}
-//             disabled={status === "ACTIVE"}
-//             activeOpacity={0.85}
-//             style={{
-//               height: 56,
-//               borderRadius: 16,
-//               backgroundColor: status === "ACTIVE" ? "#151515" : "#23ee09",
-//               alignItems: "center",
-//               justifyContent: "center",
-//               flexDirection: "row",
-//             }}
-//           >
-//             <Ionicons
-//               name={status === "ACTIVE" ? "checkmark-circle" : "card-outline"}
-//               size={20}
-//               color={status === "ACTIVE" ? "#23ee09" : "#050505"}
-//             />
-
-//             <Text
-//               style={{
-//                 marginLeft: 8,
-//                 fontSize: 16,
-//                 fontWeight: "700",
-//                 color: status === "ACTIVE" ? "#777" : "#050505",
-//               }}
-//             >
-//               {status === "ACTIVE"
-//                 ? "Payout Account Connected"
-//                 : "Add Bank Account"}
-//             </Text>
-//           </TouchableOpacity>
-//         )}
-//       </View>
-
-//       {/* =========================
-//           BANK FORM MODAL
-//       ========================== */}
-
-//       <Modal
-//         visible={showBankForm}
-//         animationType="slide"
-//         transparent
-//         onRequestClose={() => setShowBankForm(false)}
-//       >
-//         <KeyboardAvoidingView
-//           style={{
-//             flex: 1,
-//           }}
-//           behavior={Platform.OS === "ios" ? "padding" : "height"}
-//         >
-//           <View
-//             style={{
-//               flex: 1,
-//               backgroundColor: "rgba(0,0,0,0.6)",
-//               justifyContent: "flex-end",
-//             }}
-//           >
-//             <View
-//               style={{
-//                 backgroundColor: "#111",
-//                 borderTopLeftRadius: 24,
-//                 borderTopRightRadius: 24,
-//                 maxHeight: "90%",
-//               }}
-//             >
-//               <ScrollView
-//                 keyboardShouldPersistTaps="handled"
-//                 showsVerticalScrollIndicator={false}
-//                 contentContainerStyle={{
-//                   padding: 24,
-//                   paddingBottom: 35,
+//               <Text
+//                 style={{
+//                   color: "#888",
+//                   fontSize: 12,
+//                   fontWeight: "600",
+//                   marginBottom: 7,
+//                   marginLeft: 2,
 //                 }}
 //               >
-//                 {/* FORM HEADER */}
+//                 ACCOUNT HOLDER NAME
+//               </Text>
 
-//                 <View
-//                   style={{
-//                     flexDirection: "row",
-//                     alignItems: "center",
-//                     marginBottom: 20,
-//                   }}
-//                 >
-//                   <View
-//                     style={{
-//                       width: 44,
-//                       height: 44,
-//                       borderRadius: 22,
-//                       backgroundColor: "#1A1A1A",
-//                       alignItems: "center",
-//                       justifyContent: "center",
-//                     }}
-//                   >
-//                     <Ionicons name="card-outline" size={22} color="#23ee09" />
-//                   </View>
+//               <TextInput
+//                 placeholder="Enter account holder name"
+//                 placeholderTextColor="#555"
+//                 value={accountHolder}
+//                 onChangeText={setAccountHolder}
+//                 autoCapitalize="words"
+//                 returnKeyType="next"
+//                 editable={!connecting}
+//                 style={{
+//                   height: 54,
+//                   backgroundColor: "#111",
+//                   color: "#FFFFFF",
+//                   borderRadius: 14,
+//                   paddingHorizontal: 16,
+//                   fontSize: 15,
+//                   borderWidth: 1,
+//                   borderColor: "#222",
+//                   marginBottom: 16,
+//                 }}
+//               />
 
-//                   <View
-//                     style={{
-//                       marginLeft: 12,
-//                       flex: 1,
-//                     }}
-//                   >
+//               {/* ACCOUNT NUMBER */}
+
+//               <Text
+//                 style={{
+//                   color: "#888",
+//                   fontSize: 12,
+//                   fontWeight: "600",
+//                   marginBottom: 7,
+//                   marginLeft: 2,
+//                 }}
+//               >
+//                 ACCOUNT NUMBER
+//               </Text>
+
+//               <TextInput
+//                 placeholder="Enter account number"
+//                 placeholderTextColor="#555"
+//                 value={accountNumber}
+//                 onChangeText={setAccountNumber}
+//                 keyboardType="number-pad"
+//                 returnKeyType="next"
+//                 editable={!connecting}
+//                 secureTextEntry={false}
+//                 style={{
+//                   height: 54,
+//                   backgroundColor: "#111",
+//                   color: "#FFFFFF",
+//                   borderRadius: 14,
+//                   paddingHorizontal: 16,
+//                   fontSize: 15,
+//                   borderWidth: 1,
+//                   borderColor: "#222",
+//                   marginBottom: 16,
+//                 }}
+//               />
+
+//               {/* IFSC */}
+
+//               <Text
+//                 style={{
+//                   color: "#888",
+//                   fontSize: 12,
+//                   fontWeight: "600",
+//                   marginBottom: 7,
+//                   marginLeft: 2,
+//                 }}
+//               >
+//                 IFSC CODE
+//               </Text>
+
+//               <TextInput
+//                 placeholder="Enter IFSC code"
+//                 placeholderTextColor="#555"
+//                 value={ifsc}
+//                 onChangeText={setIfsc}
+//                 autoCapitalize="characters"
+//                 autoCorrect={false}
+//                 returnKeyType="next"
+//                 editable={!connecting}
+//                 maxLength={11}
+//                 style={{
+//                   height: 54,
+//                   backgroundColor: "#111",
+//                   color: "#FFFFFF",
+//                   borderRadius: 14,
+//                   paddingHorizontal: 16,
+//                   fontSize: 15,
+//                   borderWidth: 1,
+//                   borderColor: "#222",
+//                   marginBottom: 16,
+//                 }}
+//               />
+
+//               {/* PAN */}
+
+//               <Text
+//                 style={{
+//                   color: "#888",
+//                   fontSize: 12,
+//                   fontWeight: "600",
+//                   marginBottom: 7,
+//                   marginLeft: 2,
+//                 }}
+//               >
+//                 PAN NUMBER
+//               </Text>
+
+//               <TextInput
+//                 placeholder="Enter PAN number"
+//                 placeholderTextColor="#555"
+//                 value={panNumber}
+//                 onChangeText={setPanNumber}
+//                 autoCapitalize="characters"
+//                 autoCorrect={false}
+//                 returnKeyType="done"
+//                 editable={!connecting}
+//                 maxLength={10}
+//                 style={{
+//                   height: 54,
+//                   backgroundColor: "#111",
+//                   color: "#FFFFFF",
+//                   borderRadius: 14,
+//                   paddingHorizontal: 16,
+//                   fontSize: 15,
+//                   borderWidth: 1,
+//                   borderColor: "#222",
+//                   marginBottom: 22,
+//                 }}
+//               />
+
+//               {/* ADD BANK ACCOUNT */}
+
+//               <TouchableOpacity
+//                 onPress={submitBankDetails}
+//                 disabled={connecting}
+//                 activeOpacity={0.85}
+//                 style={{
+//                   height: 56,
+//                   borderRadius: 16,
+//                   backgroundColor: connecting ? "#151515" : "#23ee09",
+//                   alignItems: "center",
+//                   justifyContent: "center",
+//                   flexDirection: "row",
+//                 }}
+//               >
+//                 {connecting ? (
+//                   <>
+//                     <ActivityIndicator size="small" color="#23ee09" />
+
 //                     <Text
 //                       style={{
-//                         color: "white",
-//                         fontSize: 20,
+//                         color: "#777",
+//                         fontSize: 15,
 //                         fontWeight: "700",
+//                         marginLeft: 9,
+//                       }}
+//                     >
+//                       Verifying...
+//                     </Text>
+//                   </>
+//                 ) : (
+//                   <>
+//                     <Ionicons name="card-outline" size={20} color="#050505" />
+
+//                     <Text
+//                       style={{
+//                         color: "#050505",
+//                         fontSize: 16,
+//                         fontWeight: "700",
+//                         marginLeft: 8,
 //                       }}
 //                     >
 //                       Add Bank Account
 //                     </Text>
+//                   </>
+//                 )}
+//               </TouchableOpacity>
 
-//                     <Text
-//                       style={{
-//                         color: "#666",
-//                         fontSize: 12,
-//                         marginTop: 3,
-//                       }}
-//                     >
-//                       Enter your account details
-//                     </Text>
-//                   </View>
+//               {/* SECURITY NOTE */}
 
-//                   {/* CLOSE */}
-
-//                   <TouchableOpacity
-//                     onPress={() => setShowBankForm(false)}
-//                     style={{
-//                       width: 36,
-//                       height: 36,
-//                       borderRadius: 18,
-//                       backgroundColor: "#1A1A1A",
-//                       alignItems: "center",
-//                       justifyContent: "center",
-//                     }}
-//                   >
-//                     <Ionicons name="close" size={20} color="#777" />
-//                   </TouchableOpacity>
-//                 </View>
-
-//                 {/* ACCOUNT HOLDER */}
-
-//                 <TextInput
-//                   placeholder="Account holder name"
-//                   placeholderTextColor="#666"
-//                   value={accountHolder}
-//                   onChangeText={setAccountHolder}
-//                   autoCapitalize="words"
-//                   returnKeyType="next"
-//                   style={{
-//                     backgroundColor: "#1A1A1A",
-//                     color: "white",
-//                     borderRadius: 12,
-//                     paddingHorizontal: 16,
-//                     paddingVertical: 14,
-//                     marginBottom: 12,
-//                     fontSize: 15,
-//                     borderWidth: 1,
-//                     borderColor: "#222",
-//                   }}
-//                 />
-
-//                 {/* ACCOUNT NUMBER */}
-
-//                 <TextInput
-//                   placeholder="Account number"
-//                   placeholderTextColor="#666"
-//                   value={accountNumber}
-//                   onChangeText={setAccountNumber}
-//                   keyboardType="numeric"
-//                   returnKeyType="next"
-//                   style={{
-//                     backgroundColor: "#1A1A1A",
-//                     color: "white",
-//                     borderRadius: 12,
-//                     paddingHorizontal: 16,
-//                     paddingVertical: 14,
-//                     marginBottom: 12,
-//                     fontSize: 15,
-//                     borderWidth: 1,
-//                     borderColor: "#222",
-//                   }}
-//                 />
-
-//                 {/* IFSC */}
-
-//                 <TextInput
-//                   placeholder="IFSC code"
-//                   placeholderTextColor="#666"
-//                   value={ifsc}
-//                   onChangeText={setIfsc}
-//                   autoCapitalize="characters"
-//                   returnKeyType="next"
-//                   style={{
-//                     backgroundColor: "#1A1A1A",
-//                     color: "white",
-//                     borderRadius: 12,
-//                     paddingHorizontal: 16,
-//                     paddingVertical: 14,
-//                     marginBottom: 12,
-//                     fontSize: 15,
-//                     borderWidth: 1,
-//                     borderColor: "#222",
-//                   }}
-//                 />
-
-//                 {/* PAN */}
-
-//                 <TextInput
-//                   placeholder="PAN number"
-//                   placeholderTextColor="#666"
-//                   value={panNumber}
-//                   onChangeText={setPanNumber}
-//                   autoCapitalize="characters"
-//                   returnKeyType="done"
-//                   style={{
-//                     backgroundColor: "#1A1A1A",
-//                     color: "white",
-//                     borderRadius: 12,
-//                     paddingHorizontal: 16,
-//                     paddingVertical: 14,
-//                     marginBottom: 12,
-//                     fontSize: 15,
-//                     borderWidth: 1,
-//                     borderColor: "#222",
-//                   }}
-//                 />
-
-//                 {/* SUBMIT */}
-
-//                 <TouchableOpacity
-//                   onPress={submitBankDetails}
-//                   disabled={connecting}
-//                   activeOpacity={0.85}
-//                   style={{
-//                     height: 54,
-//                     borderRadius: 14,
-//                     backgroundColor: connecting ? "#1A1A1A" : "#23ee09",
-//                     alignItems: "center",
-//                     justifyContent: "center",
-//                     marginTop: 8,
-//                   }}
-//                 >
-//                   {connecting ? (
-//                     <View
-//                       style={{
-//                         flexDirection: "row",
-//                         alignItems: "center",
-//                       }}
-//                     >
-//                       <ActivityIndicator size="small" color="#23ee09" />
-
-//                       <Text
-//                         style={{
-//                           color: "#777",
-//                           fontWeight: "600",
-//                           fontSize: 15,
-//                           marginLeft: 9,
-//                         }}
-//                       >
-//                         Verifying...
-//                       </Text>
-//                     </View>
-//                   ) : (
-//                     <Text
-//                       style={{
-//                         color: "#050505",
-//                         fontWeight: "700",
-//                         fontSize: 16,
-//                       }}
-//                     >
-//                       Save & Verify
-//                     </Text>
-//                   )}
-//                 </TouchableOpacity>
-
-//                 {/* CANCEL */}
-
-//                 <TouchableOpacity
-//                   onPress={() => setShowBankForm(false)}
-//                   style={{
-//                     marginTop: 14,
-//                     alignItems: "center",
-//                     paddingVertical: 8,
-//                   }}
-//                 >
-//                   <Text
-//                     style={{
-//                       color: "#777",
-//                       fontSize: 14,
-//                     }}
-//                   >
-//                     Cancel
-//                   </Text>
-//                 </TouchableOpacity>
-//               </ScrollView>
-//             </View>
-//           </View>
-//         </KeyboardAvoidingView>
-//       </Modal>
-
-//       {/* =========================
-//           CUSTOM ERROR MODAL
-//       ========================== */}
-
-//       <Modal
-//         visible={errorModalVisible}
-//         transparent
-//         animationType="fade"
-//         onRequestClose={() => setErrorModalVisible(false)}
-//       >
-//         <View
-//           style={{
-//             flex: 1,
-//             backgroundColor: "rgba(0,0,0,0.78)",
-//             justifyContent: "center",
-//             alignItems: "center",
-//             paddingHorizontal: 24,
-//           }}
-//         >
-//           <View
-//             style={{
-//               width: "100%",
-//               backgroundColor: "#111111",
-//               borderRadius: 24,
-//               padding: 24,
-//               borderWidth: 1,
-//               borderColor: "#242424",
-//             }}
-//           >
-//             {/* ERROR ICON */}
-
-//             <View
-//               style={{
-//                 width: 58,
-//                 height: 58,
-//                 borderRadius: 29,
-//                 backgroundColor: "#1A1010",
-//                 alignItems: "center",
-//                 justifyContent: "center",
-//                 marginBottom: 18,
-//               }}
-//             >
-//               <Ionicons name="alert-circle-outline" size={32} color="#ff4d4d" />
-//             </View>
-
-//             {/* ERROR TITLE */}
-
-//             <Text
-//               style={{
-//                 color: "#FFFFFF",
-//                 fontSize: 21,
-//                 fontWeight: "700",
-//                 marginBottom: 10,
-//               }}
-//             >
-//               {errorTitle}
-//             </Text>
-
-//             {/* ERROR MESSAGE */}
-
-//             <Text
-//               style={{
-//                 color: "#A5A5A5",
-//                 fontSize: 15,
-//                 lineHeight: 22,
-//                 marginBottom: 24,
-//               }}
-//             >
-//               {errorMessage}
-//             </Text>
-
-//             {/* OKAY BUTTON */}
-
-//             <TouchableOpacity
-//               onPress={() => setErrorModalVisible(false)}
-//               activeOpacity={0.85}
-//               style={{
-//                 height: 52,
-//                 borderRadius: 14,
-//                 backgroundColor: "#23ee09",
-//                 justifyContent: "center",
-//                 alignItems: "center",
-//               }}
-//             >
-//               <Text
+//               <View
 //                 style={{
-//                   color: "#000000",
-//                   fontSize: 16,
-//                   fontWeight: "700",
+//                   flexDirection: "row",
+//                   alignItems: "center",
+//                   justifyContent: "center",
+//                   marginTop: 17,
 //                 }}
 //               >
-//                 Okay
-//               </Text>
-//             </TouchableOpacity>
-//           </View>
-//         </View>
-//       </Modal>
+//                 <Ionicons name="lock-closed-outline" size={14} color="#555" />
+
+//                 <Text
+//                   style={{
+//                     color: "#555",
+//                     fontSize: 12,
+//                     marginLeft: 6,
+//                   }}
+//                 >
+//                   Your bank details are securely verified.
+//                 </Text>
+//               </View>
+//             </View>
+//           )}
+
+//           {/* PENDING MESSAGE */}
+
+//           {status === "PENDING" && (
+//             <View
+//               style={{
+//                 marginTop: 20,
+//                 padding: 16,
+//                 backgroundColor: "#0D0D0D",
+//                 borderRadius: 14,
+//                 borderWidth: 1,
+//                 borderColor: "#202020",
+//               }}
+//             >
+//               <View
+//                 style={{
+//                   flexDirection: "row",
+//                   alignItems: "flex-start",
+//                 }}
+//               >
+//                 <Ionicons
+//                   name="information-circle-outline"
+//                   size={19}
+//                   color="#777"
+//                 />
+
+//                 <Text
+//                   style={{
+//                     flex: 1,
+//                     color: "#777",
+//                     fontSize: 13,
+//                     lineHeight: 19,
+//                     marginLeft: 9,
+//                   }}
+//                 >
+//                   Your payout account is being verified. You can leave this
+//                   screen and return later to check the latest status.
+//                 </Text>
+//               </View>
+//             </View>
+//           )}
+//         </ScrollView>
+//       </KeyboardAvoidingView>
 //     </SafeAreaView>
 //   );
 // }
+import {
+  deleteCashfreeVendorApi,
+  getCashfreeVendorStatusApi,
+  setupCashfreeVendorApi,
+  updateCashfreeVendorApi,
+  type CashfreeVendorDetails,
+} from "@/backend/services/paymentService";
+import { useAuth } from "@/context/AuthContext";
+import { useGym } from "@/context/GymContext";
+import { Ionicons } from "@expo/vector-icons";
+import { useCallback, useEffect, useState } from "react";
+import {
+  ActivityIndicator,
+  Alert,
+  KeyboardAvoidingView,
+  Platform,
+  ScrollView,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
+} from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
+
+const GREEN = "#23ee09";
+const BG = "#050505";
+const CARD = "#101010";
+
+type FormDetails = {
+  accountHolder: string;
+  accountNumber: string;
+  ifsc: string;
+  panNumber: string;
+};
+
+const EMPTY_FORM: FormDetails = {
+  accountHolder: "",
+  accountNumber: "",
+  ifsc: "",
+  panNumber: "",
+};
+
+function getStatusDisplay(status: string) {
+  switch (status.toUpperCase()) {
+    case "ACTIVE":
+      return {
+        title: "Account active",
+        description: "Cashfree reports this vendor as active.",
+        color: GREEN,
+        icon: "checkmark-circle" as const,
+      };
+
+    case "BLOCKED":
+      return {
+        title: "Account blocked",
+        description:
+          "Cashfree reports this vendor as blocked. Contact support if you need assistance.",
+        color: "#ff6868",
+        icon: "alert-circle" as const,
+      };
+
+    case "DELETED":
+      return {
+        title: "Account deleted",
+        description: "Cashfree reports this vendor as deleted.",
+        color: "#999999",
+        icon: "trash-outline" as const,
+      };
+
+    default:
+      return {
+        title: status || "Status unavailable",
+        description:
+          "This is the status returned by Cashfree. Contact support if you need help interpreting it.",
+        color: "#ffbd59",
+        icon: "time-outline" as const,
+      };
+  }
+}
+
+export default function SetUpPayment() {
+  const { gym } = useGym();
+  const { user } = useAuth();
+
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [editing, setEditing] = useState(false);
+  const [exists, setExists] = useState(false);
+  const [status, setStatus] = useState("NOT_SETUP");
+  const [vendorId, setVendorId] = useState("");
+  const [statusError, setStatusError] = useState("");
+  const [form, setForm] = useState<FormDetails>(EMPTY_FORM);
+
+  const loadStatus = useCallback(async () => {
+    if (!gym?._id) {
+      setLoading(false);
+      return;
+    }
+
+    setLoading(true);
+    setStatusError("");
+
+    try {
+      const result = await getCashfreeVendorStatusApi(gym._id);
+
+      if (!result?.success) {
+        throw new Error(result?.message || "Unable to verify Cashfree status.");
+      }
+
+      setExists(Boolean(result.exists));
+      setStatus(result.status || "UNKNOWN");
+      setVendorId(result.vendorId || "");
+    } catch (error: any) {
+      setStatusError(
+        error?.response?.data?.message ||
+          error?.message ||
+          "Unable to check Cashfree status.",
+      );
+    } finally {
+      setLoading(false);
+    }
+  }, [gym?._id]);
+
+  useEffect(() => {
+    void loadStatus();
+  }, [loadStatus]);
+
+  const changeField = (key: keyof FormDetails, value: string) => {
+    setForm((previous) => ({
+      ...previous,
+      [key]: value,
+    }));
+  };
+
+  const cancelEditing = () => {
+    setEditing(false);
+    setForm(EMPTY_FORM);
+  };
+
+  const submitDetails = async () => {
+    if (!gym?._id || saving) return;
+
+    if (
+      !form.accountHolder.trim() ||
+      !form.accountNumber.trim() ||
+      !form.ifsc.trim() ||
+      !form.panNumber.trim() ||
+      !user?.email ||
+      !user?.phone
+    ) {
+      Alert.alert(
+        "Missing details",
+        "Complete all bank fields and ensure your profile has an email and phone number.",
+      );
+      return;
+    }
+
+    const details: CashfreeVendorDetails = {
+      name: gym.gymName,
+      accountHolder: form.accountHolder.trim(),
+      accountNumber: form.accountNumber.trim(),
+      ifsc: form.ifsc.trim().toUpperCase(),
+      panNumber: form.panNumber.trim().toUpperCase(),
+      email: user.email,
+      phoneNumber: String(user.phone),
+    };
+
+    setSaving(true);
+
+    try {
+      const result = editing
+        ? await updateCashfreeVendorApi(gym._id, details)
+        : await setupCashfreeVendorApi(gym._id, details);
+
+      if (!result?.success) {
+        throw new Error(
+          result?.message || "Cashfree could not save the details.",
+        );
+      }
+
+      setEditing(false);
+      setForm(EMPTY_FORM);
+
+      await loadStatus();
+
+      Alert.alert(
+        editing ? "Details updated" : "Request submitted",
+        editing
+          ? "Cashfree accepted the vendor update."
+          : "Your vendor details were submitted to Cashfree.",
+      );
+    } catch (error: any) {
+      Alert.alert(
+        "Unable to save",
+        error?.response?.data?.message || error?.message || "Please try again.",
+      );
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const deleteRequest = () => {
+    if (!gym?._id || saving) return;
+
+    Alert.alert(
+      "Delete account request?",
+      "This will ask Cashfree to mark the vendor as DELETED. It may affect future settlements. Continue only if you intend to deactivate this vendor.",
+      [
+        {
+          text: "Cancel",
+          style: "cancel",
+        },
+        {
+          text: "Delete",
+          style: "destructive",
+          onPress: async () => {
+            setSaving(true);
+
+            try {
+              const result = await deleteCashfreeVendorApi(gym._id);
+
+              if (!result?.success) {
+                throw new Error(
+                  result?.message || "Cashfree could not delete the vendor.",
+                );
+              }
+
+              setEditing(false);
+              setForm(EMPTY_FORM);
+              await loadStatus();
+
+              Alert.alert(
+                "Request updated",
+                "Cashfree accepted the vendor status update.",
+              );
+            } catch (error: any) {
+              Alert.alert(
+                "Unable to delete",
+                error?.response?.data?.message ||
+                  error?.message ||
+                  "Please try again.",
+              );
+            } finally {
+              setSaving(false);
+            }
+          },
+        },
+      ],
+    );
+  };
+
+  const hasRequest = exists && status !== "DELETED";
+  const statusInfo = getStatusDisplay(status);
+
+  const renderField = (
+    label: string,
+    key: keyof FormDetails,
+    placeholder: string,
+    options: {
+      autoCapitalize?: "none" | "sentences" | "words" | "characters";
+      keyboardType?: "default" | "number-pad";
+      maxLength?: number;
+    } = {},
+  ) => (
+    <View style={{ marginBottom: 16 }}>
+      <Text
+        style={{
+          color: "#999",
+          fontSize: 11,
+          fontWeight: "700",
+          marginBottom: 8,
+          letterSpacing: 0.7,
+        }}
+      >
+        {label}
+      </Text>
+
+      <TextInput
+        value={form[key]}
+        onChangeText={(value) => changeField(key, value)}
+        placeholder={placeholder}
+        placeholderTextColor="#555"
+        editable={!saving}
+        autoCapitalize={options.autoCapitalize || "none"}
+        keyboardType={options.keyboardType || "default"}
+        maxLength={options.maxLength}
+        autoCorrect={false}
+        style={{
+          minHeight: 52,
+          backgroundColor: "#111",
+          color: "#fff",
+          borderRadius: 13,
+          paddingHorizontal: 15,
+          borderWidth: 1,
+          borderColor: "#292929",
+          fontSize: 15,
+        }}
+      />
+    </View>
+  );
+
+  return (
+    <SafeAreaView
+      edges={["top", "bottom"]}
+      style={{ flex: 1, backgroundColor: BG }}
+    >
+      <KeyboardAvoidingView
+        style={{ flex: 1 }}
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
+      >
+        <ScrollView
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
+          contentContainerStyle={{
+            paddingHorizontal: 20,
+            paddingTop: 24,
+            paddingBottom: 36,
+          }}
+        >
+          <Text
+            style={{
+              color: "#fff",
+              fontSize: 29,
+              fontWeight: "800",
+            }}
+          >
+            Payouts
+          </Text>
+
+          <Text
+            style={{
+              color: "#888",
+              fontSize: 14,
+              lineHeight: 21,
+              marginTop: 7,
+              marginBottom: 25,
+            }}
+          >
+            Manage your Cashfree account and bank details.
+          </Text>
+
+          {loading ? (
+            <View
+              style={{
+                alignItems: "center",
+                paddingVertical: 35,
+              }}
+            >
+              <ActivityIndicator size="large" color={GREEN} />
+              <Text style={{ color: "#888", marginTop: 12 }}>
+                Checking Cashfree status...
+              </Text>
+            </View>
+          ) : statusError ? (
+            <View
+              style={{
+                backgroundColor: "#1a1010",
+                borderWidth: 1,
+                borderColor: "#512525",
+                borderRadius: 16,
+                padding: 18,
+                marginBottom: 22,
+              }}
+            >
+              <Text
+                style={{
+                  color: "#ff8888",
+                  fontSize: 16,
+                  fontWeight: "800",
+                }}
+              >
+                Unable to verify request
+              </Text>
+
+              <Text
+                style={{
+                  color: "#bbb",
+                  marginTop: 8,
+                  lineHeight: 20,
+                }}
+              >
+                {statusError}
+              </Text>
+
+              <TouchableOpacity
+                onPress={() => void loadStatus()}
+                style={{
+                  marginTop: 15,
+                  alignSelf: "flex-start",
+                  padding: 11,
+                  backgroundColor: "#292929",
+                  borderRadius: 10,
+                }}
+              >
+                <Text style={{ color: "#fff", fontWeight: "700" }}>
+                  Try again
+                </Text>
+              </TouchableOpacity>
+            </View>
+          ) : hasRequest ? (
+            // Existing Cashfree vendor/request card
+            <View
+              style={{
+                backgroundColor: CARD,
+                borderWidth: 1,
+                borderColor: "#292929",
+                borderRadius: 20,
+                padding: 18,
+                marginBottom: 24,
+              }}
+            >
+              <View
+                style={{
+                  flexDirection: "row",
+                  alignItems: "center",
+                }}
+              >
+                <View
+                  style={{
+                    height: 48,
+                    width: 48,
+                    borderRadius: 15,
+                    backgroundColor: "#1d281b",
+                    alignItems: "center",
+                    justifyContent: "center",
+                  }}
+                >
+                  <Ionicons name="card-outline" size={25} color={GREEN} />
+                </View>
+
+                <View style={{ flex: 1, marginLeft: 13 }}>
+                  <Text
+                    style={{
+                      color: "#fff",
+                      fontSize: 17,
+                      fontWeight: "800",
+                    }}
+                  >
+                    Account Request Raised
+                  </Text>
+
+                  <Text
+                    style={{
+                      color: "#888",
+                      fontSize: 12,
+                      marginTop: 4,
+                    }}
+                  >
+                    {gym?.gymName || "Your gym"}
+                  </Text>
+                </View>
+              </View>
+
+              <View
+                style={{
+                  backgroundColor: "#191919",
+                  borderRadius: 14,
+                  padding: 14,
+                  marginTop: 18,
+                  flexDirection: "row",
+                  alignItems: "flex-start",
+                }}
+              >
+                <Ionicons
+                  name={statusInfo.icon}
+                  size={23}
+                  color={statusInfo.color}
+                />
+
+                <View style={{ flex: 1, marginLeft: 10 }}>
+                  <Text
+                    style={{
+                      color: statusInfo.color,
+                      fontWeight: "800",
+                      fontSize: 15,
+                    }}
+                  >
+                    {statusInfo.title}
+                  </Text>
+
+                  <Text
+                    style={{
+                      color: "#aaa",
+                      fontSize: 12,
+                      lineHeight: 18,
+                      marginTop: 5,
+                    }}
+                  >
+                    {statusInfo.description}
+                  </Text>
+
+                  <Text
+                    style={{
+                      color: "#777",
+                      fontSize: 11,
+                      marginTop: 8,
+                    }}
+                  >
+                    Cashfree status: {status}
+                  </Text>
+                </View>
+              </View>
+
+              {!!vendorId && (
+                <Text
+                  style={{
+                    color: "#666",
+                    fontSize: 11,
+                    marginTop: 12,
+                  }}
+                >
+                  Vendor reference: {vendorId}
+                </Text>
+              )}
+
+              <View
+                style={{
+                  flexDirection: "row",
+                  gap: 10,
+                  marginTop: 18,
+                }}
+              >
+                <TouchableOpacity
+                  disabled={saving}
+                  onPress={() => {
+                    setForm(EMPTY_FORM);
+                    setEditing(true);
+                  }}
+                  style={{
+                    flex: 1,
+                    minHeight: 48,
+                    borderRadius: 13,
+                    backgroundColor: GREEN,
+                    flexDirection: "row",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    opacity: saving ? 0.5 : 1,
+                  }}
+                >
+                  <Ionicons name="create-outline" size={18} color="#050505" />
+                  <Text
+                    style={{
+                      color: "#050505",
+                      fontWeight: "800",
+                      marginLeft: 7,
+                    }}
+                  >
+                    Edit
+                  </Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  disabled={saving}
+                  onPress={deleteRequest}
+                  style={{
+                    minHeight: 48,
+                    paddingHorizontal: 14,
+                    borderRadius: 13,
+                    backgroundColor: "#211111",
+                    borderWidth: 1,
+                    borderColor: "#512525",
+                    flexDirection: "row",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    opacity: saving ? 0.5 : 1,
+                  }}
+                >
+                  <Ionicons name="trash-outline" size={17} color="#ff7777" />
+                  <Text
+                    style={{
+                      color: "#ff7777",
+                      fontWeight: "700",
+                      marginLeft: 6,
+                    }}
+                  >
+                    Delete
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          ) : (
+            <View
+              style={{
+                backgroundColor: CARD,
+                borderWidth: 1,
+                borderColor: "#292929",
+                borderRadius: 18,
+                padding: 18,
+                marginBottom: 24,
+              }}
+            >
+              <Text
+                style={{
+                  color: "#fff",
+                  fontSize: 17,
+                  fontWeight: "800",
+                }}
+              >
+                {status === "DELETED"
+                  ? "Previous request deleted"
+                  : "No active account request"}
+              </Text>
+
+              <Text
+                style={{
+                  color: "#888",
+                  fontSize: 13,
+                  lineHeight: 20,
+                  marginTop: 7,
+                }}
+              >
+                Submit your bank details to create a Cashfree vendor account.
+              </Text>
+            </View>
+          )}
+
+          {(!hasRequest || editing) && !statusError && (
+            <View>
+              <Text
+                style={{
+                  color: "#fff",
+                  fontSize: 19,
+                  fontWeight: "800",
+                  marginBottom: 7,
+                }}
+              >
+                {editing ? "Edit account details" : "Bank details"}
+              </Text>
+
+              <Text
+                style={{
+                  color: "#888",
+                  fontSize: 13,
+                  lineHeight: 20,
+                  marginBottom: 20,
+                }}
+              >
+                {editing
+                  ? "Enter the corrected details. For security, existing bank and PAN details are not prefilled."
+                  : "Enter the bank details to register with Cashfree."}
+              </Text>
+
+              {renderField(
+                "ACCOUNT HOLDER NAME",
+                "accountHolder",
+                "Name as shown on bank account",
+                { autoCapitalize: "words" },
+              )}
+
+              {renderField(
+                "ACCOUNT NUMBER",
+                "accountNumber",
+                "Enter account number",
+                { keyboardType: "number-pad" },
+              )}
+
+              {renderField("IFSC CODE", "ifsc", "Enter IFSC code", {
+                autoCapitalize: "characters",
+                maxLength: 11,
+              })}
+
+              {renderField("PAN NUMBER", "panNumber", "Enter PAN number", {
+                autoCapitalize: "characters",
+                maxLength: 10,
+              })}
+
+              <TouchableOpacity
+                onPress={submitDetails}
+                disabled={saving}
+                style={{
+                  minHeight: 54,
+                  borderRadius: 15,
+                  backgroundColor: saving ? "#252525" : GREEN,
+                  alignItems: "center",
+                  justifyContent: "center",
+                  flexDirection: "row",
+                  marginTop: 3,
+                }}
+              >
+                {saving ? (
+                  <ActivityIndicator color={GREEN} />
+                ) : (
+                  <Ionicons
+                    name="shield-checkmark-outline"
+                    size={19}
+                    color="#050505"
+                  />
+                )}
+
+                <Text
+                  style={{
+                    color: saving ? "#aaa" : "#050505",
+                    fontWeight: "800",
+                    fontSize: 15,
+                    marginLeft: 8,
+                  }}
+                >
+                  {saving
+                    ? "Please wait..."
+                    : editing
+                      ? "Save changes"
+                      : "Submit account request"}
+                </Text>
+              </TouchableOpacity>
+
+              {editing && (
+                <TouchableOpacity
+                  onPress={cancelEditing}
+                  style={{
+                    alignItems: "center",
+                    paddingVertical: 16,
+                  }}
+                >
+                  <Text
+                    style={{
+                      color: "#999",
+                      fontWeight: "700",
+                    }}
+                  >
+                    Cancel editing
+                  </Text>
+                </TouchableOpacity>
+              )}
+            </View>
+          )}
+
+          <View
+            style={{
+              flexDirection: "row",
+              alignItems: "flex-start",
+              marginTop: 22,
+            }}
+          >
+            <Ionicons name="lock-closed-outline" size={15} color="#555" />
+            <Text
+              style={{
+                color: "#666",
+                fontSize: 12,
+                lineHeight: 18,
+                marginLeft: 8,
+                flex: 1,
+              }}
+            >
+              Your bank details are sent to your backend and Cashfree using
+              authenticated requests. Keep Cashfree API credentials on the
+              backend only.
+            </Text>
+          </View>
+        </ScrollView>
+      </KeyboardAvoidingView>
+    </SafeAreaView>
+  );
+}

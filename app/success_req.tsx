@@ -1,13 +1,7 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { router } from "expo-router";
 import { useEffect, useState } from "react";
-import {
-  ActivityIndicator,
-  Alert,
-  Text,
-  TouchableOpacity,
-  View,
-} from "react-native";
+import { ActivityIndicator, Text, TouchableOpacity, View } from "react-native";
 
 import { getGymRequest } from "@/backend/middleware/gymPartnerMiddleware";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -61,10 +55,7 @@ export default function RequestSuccess() {
   };
 
   const handleActivated = () => {
-    Alert.alert(
-      "Activation Required",
-      "We've sent an activation email to your registered email address. Please create your password using that email before logging in.",
-    );
+    router.replace("/login");
   };
 
   if (loading) {

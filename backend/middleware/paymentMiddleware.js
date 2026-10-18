@@ -24,13 +24,20 @@ export const verifyRazorpayPayment = async (paymentData) => {
 
   return response.data;
 };
+
 export const createCashfreeOrder = async (
   registrationFee,
   ownerName,
   email,
   phone,
 ) => {
-  const res = await fetch(`${API_BASE_URL}/payment/cashfree/create-order`, {
+  console.log("BASE URL:", process.env.EXPO_PUBLIC_BASE_URL);
+
+  const url = `${API_BASE_URL}/payment/cashfree/create-order`;
+
+  console.log("FULL CASHFREE URL:", url);
+
+  const res = await fetch(url, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -43,11 +50,11 @@ export const createCashfreeOrder = async (
     }),
   });
 
+  console.log("ACTUAL RESPONSE URL:", res.url);
+  console.log("HTTP STATUS:", res.status);
+
   const responseText = await res.text();
-
-  console.log("Cashfree create-order HTTP status:", res.status);
-
-  console.log("Cashfree create-order response:", responseText);
+  console.log("RESPONSE:", responseText);
 
   try {
     return JSON.parse(responseText);
@@ -55,6 +62,38 @@ export const createCashfreeOrder = async (
     throw new Error(`Server returned ${res.status} instead of JSON`);
   }
 };
+
+// export const createCashfreeOrder = async (
+//   registrationFee,
+//   ownerName,
+//   email,
+//   phone,
+// ) => {
+//   const res = await fetch(`${API_BASE_URL}/payment/cashfree/create-order`, {
+//     method: "POST",
+//     headers: {
+//       "Content-Type": "application/json",
+//     },
+//     body: JSON.stringify({
+//       amount: registrationFee,
+//       customerName: ownerName,
+//       customerEmail: email,
+//       customerPhone: phone,
+//     }),
+//   });
+
+//   const responseText = await res.text();
+
+//   console.log("Cashfree create-order HTTP status:", res.status);
+
+//   console.log("Cashfree create-order response:", responseText);
+
+//   try {
+//     return JSON.parse(responseText);
+//   } catch {
+//     throw new Error(`Server returned ${res.status} instead of JSON`);
+//   }
+// };
 export const verifyCashfreePayment = async (orderId) => {
   const res = await fetch(`${API_BASE_URL}/payment/cashfree/verify`, {
     method: "POST",
