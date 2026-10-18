@@ -59,13 +59,82 @@ router.post("/signup", async (req, res) => {
 });
 
 // LOGIN
-router.post("/login", async (req, res) => {
-  console.log("reach ereer");
-  try {
-    const { email, password } = req.body;
+// router.post("/login", async (req, res) => {
+//   console.log("reach ereer");
+//   try {
+//     const { email, password } = req.body;
 
-    // FIND USER
+//     // FIND USER
+//     const user = await Partner.findOne({ email });
+
+//     if (!user) {
+//       return res.status(400).json({
+//         message: "Partner not found",
+//       });
+//     }
+
+//     // CHECK PASSWORD
+//     const isMatch = await compare(password, user.password);
+
+//     if (!isMatch) {
+//       return res.status(400).json({
+//         message: "Invalid credentials",
+//       });
+//     }
+
+//     // TOKEN
+//     const token = sign(
+//       {
+//         id: user._id,
+//       },
+//       process.env.JWT_SECRET,
+//       {
+//         expiresIn: "30d",
+//       },
+//     );
+
+//     res.json({
+//       token,
+//       user,
+//     });
+//   } catch (error) {
+//     console.log(error);
+
+//     res.status(500).json({
+//       message: "Server error",
+//     });
+//   }
+// });
+
+router.post("/login", async (req, res) => {
+  console.log("[LOGIN] Endpoint reached");
+
+  try {
+    const email =
+      typeof req.body?.email === "string"
+        ? req.body.email.trim().toLowerCase()
+        : "";
+
+    const password = req.body?.password;
+
+    console.log("[LOGIN] Email received:", email || "(missing)");
+    console.log("[LOGIN] Password provided:", Boolean(password));
+
+    if (!email || !password) {
+      return res.status(400).json({
+        message: "Email and password are required",
+      });
+    }
+
     const user = await Partner.findOne({ email });
+
+    console.log("[LOGIN] Partner found:", Boolean(user));
+    console.log("[LOGIN] Password hash exists:", Boolean(user?.password));
+    console.log(
+      "[LOGIN] Password hash format valid:",
+      typeof user?.password === "string" &&
+        /^\$2[aby]\$\d{2}\$/.test(user.password),
+    );
 
     if (!user) {
       return res.status(400).json({
@@ -73,8 +142,15 @@ router.post("/login", async (req, res) => {
       });
     }
 
-    // CHECK PASSWORD
+    if (!user.password) {
+      return res.status(400).json({
+        message: "Password has not been set up",
+      });
+    }
+
     const isMatch = await compare(password, user.password);
+
+    console.log("[LOGIN] Password matched:", isMatch);
 
     if (!isMatch) {
       return res.status(400).json({
@@ -82,25 +158,20 @@ router.post("/login", async (req, res) => {
       });
     }
 
-    // TOKEN
-    const token = sign(
-      {
-        id: user._id,
-      },
-      process.env.JWT_SECRET,
-      {
-        expiresIn: "30d",
-      },
-    );
+    const token = sign({ id: user._id }, process.env.JWT_SECRET, {
+      expiresIn: "30d",
+    });
 
-    res.json({
+    console.log("[LOGIN] Login successful");
+
+    return res.json({
       token,
       user,
     });
   } catch (error) {
-    console.log(error);
+    console.error("[LOGIN] Error:", error.message);
 
-    res.status(500).json({
+    return res.status(500).json({
       message: "Server error",
     });
   }
