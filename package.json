@@ -31,7 +31,7 @@
     "expo-font": "~56.0.7",
     "expo-image-picker": "~56.0.18",
     "expo-linking": "~56.0.14",
-    "expo-location": "^56.0.18",
+    "expo-location": "~56.0.26",
     "expo-router": "~56.2.11",
     "expo-secure-store": "~56.0.4",
     "expo-splash-screen": "~56.0.10",
@@ -51,6 +51,7 @@
   "devDependencies": {
     "@types/react-native-razorpay": "^2.2.6",
     "react-native-razorpay": "^3.0.0",
+    "sharp": "^0.35.5",
     "typescript": "~6.0.3"
   }
 }

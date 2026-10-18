@@ -1,6 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import Constants from "expo-constants";
+import * as Location from "expo-location";
 import { router, useFocusEffect } from "expo-router";
 import { useCallback, useEffect, useState } from "react";
 import {
@@ -91,6 +92,96 @@ export default function Explore() {
   const [isSuggestionsVisible, setIsSuggestionsVisible] = useState(false);
 
   const { latitude, longitude, setLocation } = useLocationStore();
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const initializeLocation = async () => {
+      try {
+        // 1. Use coordinates already loaded in the store.
+        if (latitude != null && longitude != null) {
+          return;
+        }
+
+        // 2. Restore a previously selected location, if available.
+        const savedLocation = await readSavedLocation();
+
+        if (cancelled) return;
+
+        if (savedLocation) {
+          setLocation(
+            savedLocation.location,
+            savedLocation.latitude,
+            savedLocation.longitude,
+          );
+          return;
+        }
+
+        // 3. Request permission to access the device location.
+        const permission = await Location.requestForegroundPermissionsAsync();
+
+        if (cancelled) return;
+
+        if (!permission.granted) {
+          console.log("Location permission denied:", permission.status);
+          return;
+        }
+
+        // 4. Get the current device coordinates.
+        const position = await Location.getCurrentPositionAsync({
+          accuracy: Location.Accuracy.Balanced,
+        });
+
+        if (cancelled) return;
+
+        const lat = position.coords.latitude;
+        const lng = position.coords.longitude;
+
+        // 5. Get a readable address when possible.
+        let address = "Current location";
+
+        try {
+          const results = await Location.reverseGeocodeAsync({
+            latitude: lat,
+            longitude: lng,
+          });
+
+          if (results.length > 0) {
+            const place = results[0];
+            address =
+              [place.name, place.street, place.district, place.city]
+                .filter(Boolean)
+                .filter((value, index, arr) => arr.indexOf(value) === index)
+                .join(", ") || address;
+          }
+        } catch (error) {
+          console.log("Reverse geocoding failed:", error);
+        }
+
+        if (cancelled) return;
+
+        // 6. Save coordinates so the gym search can use them.
+        setLocation(address, lat, lng);
+
+        await AsyncStorage.setItem(
+          "selected_location",
+          JSON.stringify({
+            location: address,
+            latitude: lat,
+            longitude: lng,
+          }),
+        );
+      } catch (error) {
+        console.error("Failed to initialize location:", error);
+      }
+    };
+
+    initializeLocation();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [latitude, longitude, setLocation]);
 
   const openGymDetails = (gym: Gym) => {
     console.log(gym.photos);

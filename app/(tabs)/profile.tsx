@@ -13,7 +13,10 @@ import {
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { deleteAccount } from "../../backend/middleware/userMiddleware";
+import {
+  deleteAccount,
+  updateProfile,
+} from "../../backend/middleware/userMiddleware";
 
 export default function Profile() {
   const { user, setUser } = useAuth();
@@ -42,13 +45,76 @@ export default function Profile() {
     router.replace("/login");
   };
 
-  const saveProfile = async () => {
-    try {
-      Alert.alert("Success", "Profile updated successfully.");
-    } catch (err) {
-      console.log(err);
+  const [saving, setSaving] = useState(false);
 
-      Alert.alert("Error", "Failed to update profile.");
+  const saveProfile = async () => {
+    const trimmedName = name.trim();
+    const trimmedEmail = email.trim().toLowerCase();
+    const trimmedPhone = phone.trim();
+
+    if (!trimmedName || !trimmedEmail || !trimmedPhone) {
+      Alert.alert("Missing Information", "Please fill in all fields.");
+      return;
+    }
+
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmedEmail)) {
+      Alert.alert("Invalid Email", "Please enter a valid email address.");
+      return;
+    }
+
+    if (saving) return;
+
+    try {
+      setSaving(true);
+
+      // const response = await updateProfile({
+      //   name: trimmedName,
+      //   email: trimmedEmail,
+      //   phone: trimmedPhone,
+      // });
+
+      // Support either { user: {...} } or a direct user object.
+      // const updatedUser = response?.user ?? response;
+
+      // if (!updatedUser?._id) {
+      //   throw new Error("The server did not return the updated user.");
+      // }
+      const response = await updateProfile({
+        name: name.trim(),
+        email: email.trim().toLowerCase(),
+        phone: phone.trim(),
+        photo: profileImage,
+      });
+
+      const updatedUser = response.user ?? response;
+
+      setUser(updatedUser);
+      await AsyncStorage.setItem("user", JSON.stringify(updatedUser));
+
+      Alert.alert("Success", "Profile updated successfully.");
+      setUser(updatedUser);
+
+      await AsyncStorage.setItem("user", JSON.stringify(updatedUser));
+
+      setName(updatedUser.ownerName ?? updatedUser.name ?? trimmedName);
+      setEmail(updatedUser.email ?? trimmedEmail);
+      setPhone(updatedUser.phone ?? trimmedPhone);
+
+      Alert.alert("Success", "Your profile has been updated.");
+    } catch (err: any) {
+      console.error(
+        "Update profile failed:",
+        err?.response?.data ?? err?.message ?? err,
+      );
+
+      Alert.alert(
+        "Update Failed",
+        err?.response?.data?.message ??
+          err?.message ??
+          "Could not update your profile. Please try again.",
+      );
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -70,19 +136,49 @@ export default function Profile() {
     );
   };
 
+  // const confirmDelete = async () => {
+  //   try {
+  //     await deleteAccount();
+
+  //     await AsyncStorage.multiRemove(["token", "user"]);
+
+  //     router.replace("/login");
+  //   } catch (err) {
+  //     console.log(err);
+
+  //     Alert.alert("Error", "Failed to delete account.");
+  //   }
+  // };
+  const [deleting, setDeleting] = useState(false);
+
   const confirmDelete = async () => {
+    if (deleting) return;
+
     try {
+      setDeleting(true);
+
       await deleteAccount();
 
-      await AsyncStorage.multiRemove(["token", "user"]);
+      // Clear the authentication session after the server confirms deletion.
+      await logout();
 
       router.replace("/login");
-    } catch (err) {
-      console.log(err);
+    } catch (err: any) {
+      console.error(
+        "Delete account failed:",
+        err?.response?.data ?? err?.message ?? err,
+      );
 
-      Alert.alert("Error", "Failed to delete account.");
+      Alert.alert(
+        "Deletion Failed",
+        err?.response?.data?.message ??
+          "Your account could not be deleted. Please try again.",
+      );
+    } finally {
+      setDeleting(false);
     }
   };
+
   const changePhoto = async () => {
     const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
 
@@ -381,7 +477,7 @@ export default function Profile() {
           </View>
 
           {/* SAVE BUTTON */}
-          <TouchableOpacity
+          {/* <TouchableOpacity
             activeOpacity={0.85}
             style={{
               marginTop: 34,
@@ -406,8 +502,35 @@ export default function Profile() {
             >
               Save Changes
             </Text>
-          </TouchableOpacity>
+          </TouchableOpacity> */}
+          <TouchableOpacity
+            activeOpacity={0.85}
+            disabled={saving}
+            style={{
+              marginTop: 34,
+              backgroundColor: saving ? "#75a86e" : "#23ee09",
+              paddingVertical: 18,
+              borderRadius: 22,
+              justifyContent: "center",
+              alignItems: "center",
+              flexDirection: "row",
+              opacity: saving ? 0.7 : 1,
+            }}
+            onPress={saveProfile}
+          >
+            <Ionicons name="save-outline" size={20} color="#050505" />
 
+            <Text
+              style={{
+                color: "#050505",
+                fontWeight: "bold",
+                fontSize: 14,
+                marginLeft: 10,
+              }}
+            >
+              {saving ? "Saving..." : "Save Changes"}
+            </Text>
+          </TouchableOpacity>
           {/* DELETE ACCOUNT */}
           <TouchableOpacity
             activeOpacity={0.85}
