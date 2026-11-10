@@ -1,4 +1,5 @@
 import { useGym } from "@/context/GymContext";
+import { MAX_CONTENT_WIDTH, MAX_FONT_MULTIPLIER } from "@/hooks/use-responsive";
 import { Ionicons } from "@expo/vector-icons";
 import { useMemo, useState } from "react";
 import {
@@ -10,6 +11,7 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+import { KeyboardAwareScrollView } from "react-native-keyboard-controller";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 type FilterType = "all" | "today" | "active" | "expiring";
@@ -153,7 +155,7 @@ export default function MembersScreen() {
 
   if (loadingGym) {
     return (
-      <SafeAreaView style={styles.container}>
+      <SafeAreaView edges={["top"]} style={styles.container}>
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color="#23ee09" />
 
@@ -211,7 +213,9 @@ export default function MembersScreen() {
         {/* Member Information */}
 
         <View style={styles.memberContent}>
-          <Text style={styles.name}>{item.name || "Unknown Member"}</Text>
+          <Text style={styles.name} numberOfLines={1}>
+            {item.name || "Unknown Member"}
+          </Text>
 
           {pass?.passType && (
             <Text style={styles.plan}>{formatPassType(pass.passType)}</Text>
@@ -267,16 +271,19 @@ export default function MembersScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView edges={["top"]} style={styles.container}>
       <FlatList
         data={filtered}
         keyExtractor={(item) => item._id}
         renderItem={renderMember}
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
-        contentContainerStyle={{
-          paddingBottom: 120,
-        }}
+        keyboardDismissMode="on-drag"
+        // Keeps the search box / list clear of the keyboard on iOS and Android.
+        renderScrollComponent={(props) => (
+          <KeyboardAwareScrollView {...props} bottomOffset={24} />
+        )}
+        contentContainerStyle={styles.listContent}
         ListHeaderComponent={
           <>
             {/* HEADER */}
@@ -337,6 +344,10 @@ export default function MembersScreen() {
                 placeholderTextColor="#777"
                 value={search}
                 onChangeText={setSearch}
+                returnKeyType="search"
+                autoCapitalize="none"
+                autoCorrect={false}
+                maxFontSizeMultiplier={MAX_FONT_MULTIPLIER}
                 style={styles.input}
               />
 
@@ -401,9 +412,22 @@ function StatCard({
     >
       <Ionicons name={icon} size={26} color="#23ee09" />
 
-      <Text style={styles.statValue}>{value}</Text>
+      <Text
+        style={styles.statValue}
+        numberOfLines={1}
+        adjustsFontSizeToFit
+        maxFontSizeMultiplier={MAX_FONT_MULTIPLIER}
+      >
+        {value}
+      </Text>
 
-      <Text style={styles.statLabel}>{label}</Text>
+      <Text
+        style={styles.statLabel}
+        numberOfLines={1}
+        maxFontSizeMultiplier={MAX_FONT_MULTIPLIER}
+      >
+        {label}
+      </Text>
     </TouchableOpacity>
   );
 }
@@ -446,7 +470,14 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: "#050505",
+  },
+
+  listContent: {
+    width: "100%",
+    maxWidth: MAX_CONTENT_WIDTH,
+    alignSelf: "center",
     paddingHorizontal: 18,
+    paddingBottom: 24,
   },
 
   loadingContainer: {
@@ -462,7 +493,7 @@ const styles = StyleSheet.create({
   },
 
   title: {
-    marginTop: "10%",
+    marginTop: 24,
     color: "#FFFFFF",
     fontSize: 26,
     fontWeight: "700",
@@ -483,6 +514,7 @@ const styles = StyleSheet.create({
 
   statCard: {
     width: "48%",
+    minWidth: 0,
     backgroundColor: "#111",
     borderRadius: 22,
     padding: 20,

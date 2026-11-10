@@ -4,6 +4,8 @@ import { useEffect, useState } from "react";
 import { ActivityIndicator, Text, TouchableOpacity, View } from "react-native";
 
 import { getGymRequest } from "@/backend/middleware/gymPartnerMiddleware";
+import { Screen } from "@/components/layout/screen";
+import { useResponsive } from "@/hooks/use-responsive";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 export default function RequestSuccess() {
@@ -13,6 +15,7 @@ export default function RequestSuccess() {
   );
 
   const [email, setEmail] = useState("");
+  const { scale } = useResponsive();
 
   useEffect(() => {
     loadRequest();
@@ -60,28 +63,31 @@ export default function RequestSuccess() {
 
   if (loading) {
     return (
-      <SafeAreaView className="flex-1 justify-center items-center bg-white">
-        <ActivityIndicator size="large" />
+      <SafeAreaView
+        style={{
+          flex: 1,
+          justifyContent: "center",
+          alignItems: "center",
+          backgroundColor: "#050505",
+        }}
+      >
+        <ActivityIndicator size="large" color="#23ee09" />
       </SafeAreaView>
     );
   }
 
   return (
-    <SafeAreaView
-      style={{
-        flex: 1,
-        backgroundColor: "#050505",
-        justifyContent: "center",
-        paddingHorizontal: 24,
-      }}
+    <Screen
+      centerContent
+      contentContainerStyle={{ paddingHorizontal: 24, paddingVertical: 24 }}
     >
       {/* Glow */}
       <View
         style={{
           position: "absolute",
-          width: 280,
-          height: 280,
-          borderRadius: 140,
+          width: scale(280),
+          height: scale(280),
+          borderRadius: scale(140),
           backgroundColor: "#22ff00",
           opacity: 0.08,
           alignSelf: "center",
@@ -279,6 +285,6 @@ export default function RequestSuccess() {
           </TouchableOpacity>
         )}
       </View>
-    </SafeAreaView>
+    </Screen>
   );
 }

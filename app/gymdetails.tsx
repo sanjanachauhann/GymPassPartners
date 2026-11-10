@@ -1,3 +1,5 @@
+import { Screen } from "@/components/layout/screen";
+import { MAX_FONT_MULTIPLIER, useResponsive } from "@/hooks/use-responsive";
 import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import Constants from "expo-constants";
@@ -12,7 +14,6 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
 import { useLocationStore } from "../store/locationStore";
 
 type PlaceSuggestion = {
@@ -97,6 +98,7 @@ export default function GymDetails() {
   const [isSuggestionsVisible, setIsSuggestionsVisible] = useState(false);
 
   const { latitude, longitude, setLocation } = useLocationStore();
+  const { fontSize, gutter } = useResponsive();
 
   const openGymDetails = async (gym: Gym) => {
     // const partner = JSON.parse((await AsyncStorage.getItem("partner")) || "{}");
@@ -316,349 +318,237 @@ export default function GymDetails() {
   };
 
   return (
-    <ScrollView
-      style={{
-        flex: 1,
-        backgroundColor: "#050505",
-      }}
-      showsVerticalScrollIndicator={false}
+    <Screen
+      edges={["top", "bottom"]}
+      contentContainerStyle={{ paddingHorizontal: gutter, paddingBottom: 40 }}
     >
-      <SafeAreaView style={{ paddingHorizontal: 20 }}>
-        <TouchableOpacity onPress={() => router.back()}>
-          <Ionicons name="arrow-back" size={24} color="white" />
-        </TouchableOpacity>
-        {/* HEADER */}
-        <View style={{ marginTop: 10 }}>
-          <Text
-            style={{
-              color: "white",
-              fontSize: 34,
-              fontWeight: "bold",
-            }}
-          >
-            Register
-            {"\n"}
-            Your Gym
-          </Text>
-
-          <Text
-            style={{
-              color: "#777",
-              marginTop: 8,
-              fontSize: 15,
-            }}
-          >
-            Search your gym
-          </Text>
-        </View>
-
-        <View
+      <TouchableOpacity
+        onPress={() => router.back()}
+        hitSlop={12}
+        style={{ alignSelf: "flex-start", paddingVertical: 6 }}
+      >
+        <Ionicons name="arrow-back" size={24} color="white" />
+      </TouchableOpacity>
+      {/* HEADER */}
+      <View style={{ marginTop: 10 }}>
+        <Text
+          maxFontSizeMultiplier={MAX_FONT_MULTIPLIER}
           style={{
-            marginTop: 28,
+            color: "white",
+            fontSize: fontSize(34),
+            fontWeight: "bold",
           }}
         >
-          <View
-            style={{
-              backgroundColor: "#0F0F0F",
-              borderRadius: 22,
-              paddingHorizontal: 18,
-              paddingVertical: 16,
-              flexDirection: "row",
-              alignItems: "center",
-              borderWidth: 1,
-              borderColor: isSuggestionsVisible
-                ? "rgba(0,245,212,0.3)"
-                : "rgba(255,255,255,0.05)",
+          Register
+          {"\n"}
+          Your Gym
+        </Text>
+
+        <Text
+          style={{
+            color: "#777",
+            marginTop: 8,
+            fontSize: 15,
+          }}
+        >
+          Search your gym
+        </Text>
+      </View>
+
+      <View
+        style={{
+          marginTop: 28,
+        }}
+      >
+        <View
+          style={{
+            backgroundColor: "#0F0F0F",
+            borderRadius: 22,
+            paddingHorizontal: 18,
+            paddingVertical: 16,
+            flexDirection: "row",
+            alignItems: "center",
+            borderWidth: 1,
+            borderColor: isSuggestionsVisible
+              ? "rgba(0,245,212,0.3)"
+              : "rgba(255,255,255,0.05)",
+          }}
+        >
+          <Ionicons
+            name="search"
+            size={22}
+            color={isSuggestionsVisible ? "#23ee09" : "#777"}
+          />
+
+          <TextInput
+            value={searchQuery}
+            onChangeText={(text) => {
+              setSearchQuery(text);
+              setIsSuggestionsVisible(true);
             }}
-          >
-            <Ionicons
-              name="search"
-              size={22}
-              color={isSuggestionsVisible ? "#23ee09" : "#777"}
-            />
+            onFocus={() => setIsSuggestionsVisible(true)}
+            onSubmitEditing={() => setIsSuggestionsVisible(false)}
+            returnKeyType="search"
+            placeholder="Search gym or area..."
+            placeholderTextColor="#777"
+            autoCorrect={false}
+            maxFontSizeMultiplier={MAX_FONT_MULTIPLIER}
+            style={{
+              flex: 1,
+              color: "white",
+              marginLeft: 12,
+              fontSize: 16,
+            }}
+          />
 
-            <TextInput
-              value={searchQuery}
-              onChangeText={(text) => {
-                setSearchQuery(text);
-                setIsSuggestionsVisible(true);
+          {isSearchingPlaces ? (
+            <ActivityIndicator size="small" color="#23ee09" />
+          ) : searchQuery.length > 0 ? (
+            <TouchableOpacity
+              onPress={() => {
+                setSearchQuery("");
+                setSuggestions([]);
               }}
-              onFocus={() => setIsSuggestionsVisible(true)}
-              onSubmitEditing={() => setIsSuggestionsVisible(false)}
-              returnKeyType="search"
-              placeholder="Search gym or area..."
-              placeholderTextColor="#777"
+              activeOpacity={0.8}
+            >
+              <Ionicons name="close-circle" size={22} color="#777" />
+            </TouchableOpacity>
+          ) : (
+            <TouchableOpacity onPress={() => setIsSuggestionsVisible(false)}>
+              <Ionicons name="options-outline" size={22} color="#23ee09" />
+            </TouchableOpacity>
+          )}
+        </View>
+
+        {/* {isSuggestionsVisible && searchQuery.trim().length >= 2 && ( */}
+        {isSuggestionsVisible &&
+          suggestions.length > 0 &&
+          searchQuery.trim().length >= 2 && (
+            <View
               style={{
-                flex: 1,
-                color: "white",
-                marginLeft: 12,
-                fontSize: 16,
+                marginTop: 10,
+                backgroundColor: "#0D0D0D",
+                borderRadius: 22,
+                borderWidth: 1,
+                borderColor: "rgba(0,245,212,0.14)",
+                overflow: "hidden",
               }}
-            />
+            >
+              {!GOOGLE_PLACES_API_KEY ? (
+                <Text
+                  style={{
+                    color: "#777",
+                    padding: 18,
+                    fontSize: 14,
+                  }}
+                >
+                  Add Google API to enable suggestions.
+                </Text>
+              ) : suggestions.length > 0 ? (
+                <>
+                  {suggestions.map((suggestion, index) => {
+                    const mainText =
+                      suggestion.structured_formatting?.main_text ||
+                      suggestion.description;
+                    const secondaryText =
+                      suggestion.structured_formatting?.secondary_text;
 
-            {isSearchingPlaces ? (
-              <ActivityIndicator size="small" color="#23ee09" />
-            ) : searchQuery.length > 0 ? (
-              <TouchableOpacity
-                onPress={() => {
-                  setSearchQuery("");
-                  setSuggestions([]);
-                }}
-                activeOpacity={0.8}
-              >
-                <Ionicons name="close-circle" size={22} color="#777" />
-              </TouchableOpacity>
-            ) : (
-              <TouchableOpacity onPress={() => setIsSuggestionsVisible(false)}>
-                <Ionicons name="options-outline" size={22} color="#23ee09" />
-              </TouchableOpacity>
-            )}
-          </View>
-
-          {/* {isSuggestionsVisible && searchQuery.trim().length >= 2 && ( */}
-          {isSuggestionsVisible &&
-            suggestions.length > 0 &&
-            searchQuery.trim().length >= 2 && (
-              <View
-                style={{
-                  marginTop: 10,
-                  backgroundColor: "#0D0D0D",
-                  borderRadius: 22,
-                  borderWidth: 1,
-                  borderColor: "rgba(0,245,212,0.14)",
-                  overflow: "hidden",
-                }}
-              >
-                {!GOOGLE_PLACES_API_KEY ? (
-                  <Text
-                    style={{
-                      color: "#777",
-                      padding: 18,
-                      fontSize: 14,
-                    }}
-                  >
-                    Add Google API to enable suggestions.
-                  </Text>
-                ) : suggestions.length > 0 ? (
-                  <>
-                    {suggestions.map((suggestion, index) => {
-                      const mainText =
-                        suggestion.structured_formatting?.main_text ||
-                        suggestion.description;
-                      const secondaryText =
-                        suggestion.structured_formatting?.secondary_text;
-
-                      return (
-                        <TouchableOpacity
-                          key={suggestion.place_id}
-                          onPress={() => selectSuggestion(suggestion)}
-                          activeOpacity={0.82}
+                    return (
+                      <TouchableOpacity
+                        key={suggestion.place_id}
+                        onPress={() => selectSuggestion(suggestion)}
+                        activeOpacity={0.82}
+                        style={{
+                          paddingHorizontal: 18,
+                          paddingVertical: 15,
+                          flexDirection: "row",
+                          alignItems: "center",
+                          borderBottomWidth:
+                            index === suggestions.length - 1 ? 0 : 1,
+                          borderBottomColor: "rgba(255,255,255,0.06)",
+                        }}
+                      >
+                        <View
                           style={{
-                            paddingHorizontal: 18,
-                            paddingVertical: 15,
-                            flexDirection: "row",
+                            width: 34,
+                            height: 34,
+                            borderRadius: 17,
+                            backgroundColor: "rgba(0,245,212,0.1)",
                             alignItems: "center",
-                            borderBottomWidth:
-                              index === suggestions.length - 1 ? 0 : 1,
-                            borderBottomColor: "rgba(255,255,255,0.06)",
+                            justifyContent: "center",
+                            marginRight: 12,
                           }}
                         >
-                          <View
+                          <Ionicons name="location" size={17} color="#23ee09" />
+                        </View>
+
+                        <View style={{ flex: 1 }}>
+                          <Text
+                            numberOfLines={1}
                             style={{
-                              width: 34,
-                              height: 34,
-                              borderRadius: 17,
-                              backgroundColor: "rgba(0,245,212,0.1)",
-                              alignItems: "center",
-                              justifyContent: "center",
-                              marginRight: 12,
+                              color: "white",
+                              fontSize: 15,
+                              fontWeight: "600",
                             }}
                           >
-                            <Ionicons
-                              name="location"
-                              size={17}
-                              color="#23ee09"
-                            />
-                          </View>
+                            {mainText}
+                          </Text>
 
-                          <View style={{ flex: 1 }}>
+                          {secondaryText ? (
                             <Text
                               numberOfLines={1}
                               style={{
-                                color: "white",
-                                fontSize: 15,
-                                fontWeight: "600",
+                                color: "#777",
+                                marginTop: 4,
+                                fontSize: 13,
                               }}
                             >
-                              {mainText}
+                              {secondaryText}
                             </Text>
+                          ) : null}
+                        </View>
 
-                            {secondaryText ? (
-                              <Text
-                                numberOfLines={1}
-                                style={{
-                                  color: "#777",
-                                  marginTop: 4,
-                                  fontSize: 13,
-                                }}
-                              >
-                                {secondaryText}
-                              </Text>
-                            ) : null}
-                          </View>
+                        <Ionicons
+                          name="chevron-forward"
+                          size={18}
+                          color="#444"
+                        />
+                      </TouchableOpacity>
+                    );
+                  })}
 
-                          <Ionicons
-                            name="chevron-forward"
-                            size={18}
-                            color="#444"
-                          />
-                        </TouchableOpacity>
-                      );
-                    })}
-
-                    <Text
-                      style={{
-                        color: "#555",
-                        fontSize: 11,
-                        paddingHorizontal: 18,
-                        paddingVertical: 10,
-                        textAlign: "right",
-                      }}
-                    >
-                      Powered by Google
-                    </Text>
-                  </>
-                ) : !isSearchingPlaces ? (
                   <Text
                     style={{
-                      color: "#777",
-                      padding: 18,
-                      fontSize: 14,
-                    }}
-                  >
-                    No address suggestions found.
-                  </Text>
-                ) : null}
-              </View>
-            )}
-        </View>
-
-        {/* DISTANCE FILTER */}
-        <View style={{ marginTop: 30 }}>
-          {/* TOP TEXT */}
-          <View
-            style={{
-              flexDirection: "row",
-              justifyContent: "space-between",
-              alignItems: "center",
-            }}
-          >
-            <Text
-              style={{
-                color: "white",
-                fontSize: 18,
-                fontWeight: "600",
-              }}
-            >
-              Distance Radius
-            </Text>
-
-            <TouchableOpacity
-              style={{
-                backgroundColor: "rgba(0,245,212,0.12)",
-                paddingHorizontal: 16,
-                paddingVertical: 8,
-                borderRadius: 16,
-              }}
-            >
-              <Text
-                style={{
-                  color: "#23ee09",
-                  fontWeight: "600",
-                }}
-              >
-                {selectedDistance}
-              </Text>
-            </TouchableOpacity>
-          </View>
-
-          {/* DISTANCE BAR */}
-          <View
-            style={{
-              marginTop: 20,
-              height: 6,
-              backgroundColor: "#151515",
-              borderRadius: 10,
-              overflow: "hidden",
-            }}
-          >
-            <View
-              // style={{
-              //   width: getDistanceBarWidth(selectedDistance),
-              //   height: "100%",
-              //   backgroundColor: "#23ee09",
-              //   borderRadius: 10,
-              // }}
-              style={{
-                width: getDistanceBarWidth(selectedDistance),
-                height: "100%",
-                backgroundColor: "#23ee09",
-                borderRadius: 10,
-                transitionDuration: "300ms", // works on web only
-              }}
-            />
-          </View>
-
-          {/* DISTANCE OPTIONS */}
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            style={{ marginTop: 20 }}
-          >
-            {["0.5 KM", "1 KM", "1.5 KM", "3 KM", "5 KM", "10 KM"].map(
-              (item, index) => {
-                const isSelected = selectedDistance === item;
-
-                return (
-                  <TouchableOpacity
-                    key={index}
-                    onPress={() => setSelectedDistance(item)}
-                    activeOpacity={0.85}
-                    style={{
-                      marginRight: 12,
-                      backgroundColor: isSelected ? "#23ee09" : "#111",
-
+                      color: "#555",
+                      fontSize: 11,
                       paddingHorizontal: 18,
-                      paddingVertical: 12,
-
-                      borderRadius: 18,
-
-                      borderWidth: 1,
-                      borderColor: isSelected
-                        ? "#23ee09"
-                        : "rgba(255,255,255,0.05)",
+                      paddingVertical: 10,
+                      textAlign: "right",
                     }}
                   >
-                    <Text
-                      style={{
-                        color: isSelected ? "#050505" : "white",
+                    Powered by Google
+                  </Text>
+                </>
+              ) : !isSearchingPlaces ? (
+                <Text
+                  style={{
+                    color: "#777",
+                    padding: 18,
+                    fontSize: 14,
+                  }}
+                >
+                  No address suggestions found.
+                </Text>
+              ) : null}
+            </View>
+          )}
+      </View>
 
-                        fontWeight: "600",
-                      }}
-                    >
-                      {item}
-                    </Text>
-                  </TouchableOpacity>
-                );
-              },
-            )}
-          </ScrollView>
-        </View>
-
-        {/* SECTION TITLE */}
+      {/* DISTANCE FILTER */}
+      <View style={{ marginTop: 30 }}>
+        {/* TOP TEXT */}
         <View
           style={{
-            marginTop: 35,
             flexDirection: "row",
             justifyContent: "space-between",
             alignItems: "center",
@@ -667,173 +557,281 @@ export default function GymDetails() {
           <Text
             style={{
               color: "white",
-              fontSize: 24,
-              fontWeight: "bold",
+              fontSize: 18,
+              fontWeight: "600",
             }}
           >
-            Gyms Nearby
+            Distance Radius
+          </Text>
+
+          <TouchableOpacity
+            style={{
+              backgroundColor: "rgba(0,245,212,0.12)",
+              paddingHorizontal: 16,
+              paddingVertical: 8,
+              borderRadius: 16,
+            }}
+          >
+            <Text
+              style={{
+                color: "#23ee09",
+                fontWeight: "600",
+              }}
+            >
+              {selectedDistance}
+            </Text>
+          </TouchableOpacity>
+        </View>
+
+        {/* DISTANCE BAR */}
+        <View
+          style={{
+            marginTop: 20,
+            height: 6,
+            backgroundColor: "#151515",
+            borderRadius: 10,
+            overflow: "hidden",
+          }}
+        >
+          <View
+            // style={{
+            //   width: getDistanceBarWidth(selectedDistance),
+            //   height: "100%",
+            //   backgroundColor: "#23ee09",
+            //   borderRadius: 10,
+            // }}
+            style={{
+              width: getDistanceBarWidth(selectedDistance),
+              height: "100%",
+              backgroundColor: "#23ee09",
+              borderRadius: 10,
+            }}
+          />
+        </View>
+
+        {/* DISTANCE OPTIONS */}
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          style={{ marginTop: 20 }}
+        >
+          {["0.5 KM", "1 KM", "1.5 KM", "3 KM", "5 KM", "10 KM"].map(
+            (item, index) => {
+              const isSelected = selectedDistance === item;
+
+              return (
+                <TouchableOpacity
+                  key={index}
+                  onPress={() => setSelectedDistance(item)}
+                  activeOpacity={0.85}
+                  style={{
+                    marginRight: 12,
+                    backgroundColor: isSelected ? "#23ee09" : "#111",
+
+                    paddingHorizontal: 18,
+                    paddingVertical: 12,
+
+                    borderRadius: 18,
+
+                    borderWidth: 1,
+                    borderColor: isSelected
+                      ? "#23ee09"
+                      : "rgba(255,255,255,0.05)",
+                  }}
+                >
+                  <Text
+                    style={{
+                      color: isSelected ? "#050505" : "white",
+
+                      fontWeight: "600",
+                    }}
+                  >
+                    {item}
+                  </Text>
+                </TouchableOpacity>
+              );
+            },
+          )}
+        </ScrollView>
+      </View>
+
+      {/* SECTION TITLE */}
+      <View
+        style={{
+          marginTop: 35,
+          flexDirection: "row",
+          justifyContent: "space-between",
+          alignItems: "center",
+        }}
+      >
+        <Text
+          maxFontSizeMultiplier={MAX_FONT_MULTIPLIER}
+          style={{
+            color: "white",
+            fontSize: fontSize(24),
+            fontWeight: "bold",
+          }}
+        >
+          Gyms Nearby
+        </Text>
+
+        <Text
+          style={{
+            color: "#777",
+            fontSize: 14,
+          }}
+        >
+          {filteredGyms.length} Gyms
+        </Text>
+      </View>
+
+      {/* GYM LIST */}
+      {isLoadingGyms ? (
+        <View
+          style={{
+            marginTop: 22,
+            backgroundColor: "#111",
+            borderRadius: 24,
+            padding: 22,
+            borderWidth: 1,
+            borderColor: "rgba(255,255,255,0.06)",
+          }}
+        >
+          <Text style={{ color: "#777", fontSize: 15 }}>
+            Finding gyms near you...
+          </Text>
+        </View>
+      ) : filteredGyms.length === 0 ? (
+        <View
+          style={{
+            marginTop: 22,
+            backgroundColor: "#111",
+            borderRadius: 24,
+            padding: 22,
+            borderWidth: 1,
+            borderColor: "rgba(255,255,255,0.06)",
+          }}
+        >
+          <Text
+            style={{
+              color: "white",
+              fontSize: 20,
+              fontWeight: "700",
+            }}
+          >
+            No gyms found
           </Text>
 
           <Text
             style={{
               color: "#777",
+              marginTop: 8,
               fontSize: 14,
+              lineHeight: 20,
             }}
           >
-            {filteredGyms.length} Gyms
+            Try increasing the distance radius or choosing another location.
           </Text>
         </View>
-
-        {/* GYM LIST */}
-        {isLoadingGyms ? (
-          <View
+      ) : (
+        filteredGyms.map((gym) => (
+          <TouchableOpacity
+            key={gym.id || gym.id}
+            onPress={() => openGymDetails(gym)}
+            activeOpacity={0.85}
             style={{
               marginTop: 22,
               backgroundColor: "#111",
-              borderRadius: 24,
-              padding: 22,
+              borderRadius: 28,
+              padding: 20,
               borderWidth: 1,
-              borderColor: "rgba(255,255,255,0.06)",
+              borderColor: "rgba(255,255,255,0.04)",
             }}
           >
-            <Text style={{ color: "#777", fontSize: 15 }}>
-              Finding gyms near you...
-            </Text>
-          </View>
-        ) : filteredGyms.length === 0 ? (
-          <View
-            style={{
-              marginTop: 22,
-              backgroundColor: "#111",
-              borderRadius: 24,
-              padding: 22,
-              borderWidth: 1,
-              borderColor: "rgba(255,255,255,0.06)",
-            }}
-          >
-            <Text
+            {/* TOP */}
+            <View
               style={{
-                color: "white",
-                fontSize: 20,
-                fontWeight: "700",
+                flexDirection: "row",
+                justifyContent: "space-between",
+                alignItems: "center",
               }}
             >
-              No gyms found
-            </Text>
-
-            <Text
-              style={{
-                color: "#777",
-                marginTop: 8,
-                fontSize: 14,
-                lineHeight: 20,
-              }}
-            >
-              Try increasing the distance radius or choosing another location.
-            </Text>
-          </View>
-        ) : (
-          filteredGyms.map((gym) => (
-            <TouchableOpacity
-              key={gym.id || gym.id}
-              onPress={() => openGymDetails(gym)}
-              activeOpacity={0.85}
-              style={{
-                marginTop: 22,
-                backgroundColor: "#111",
-                borderRadius: 28,
-                padding: 20,
-                borderWidth: 1,
-                borderColor: "rgba(255,255,255,0.04)",
-              }}
-            >
-              {/* TOP */}
-              <View
-                style={{
-                  flexDirection: "row",
-                  justifyContent: "space-between",
-                  alignItems: "center",
-                }}
-              >
-                <View style={{ flex: 1, paddingRight: 14 }}>
-                  <Text
-                    numberOfLines={1}
-                    style={{
-                      color: "white",
-                      fontSize: 22,
-                      fontWeight: "700",
-                    }}
-                  >
-                    {gym.gymName || "Gym"}
-                  </Text>
-
-                  <Text
-                    numberOfLines={2}
-                    style={{
-                      color: "#777",
-                      marginTop: 6,
-                      fontSize: 14,
-                      lineHeight: 20,
-                    }}
-                  >
-                    {gym.address || "Address not available"} •{" "}
-                    {formatDistance(gym.distanceKm)}
-                  </Text>
-                </View>
-
-                <View
+              <View style={{ flex: 1, paddingRight: 14 }}>
+                <Text
+                  numberOfLines={1}
                   style={{
-                    backgroundColor: "rgba(0,245,212,0.12)",
-                    paddingHorizontal: 14,
-                    paddingVertical: 8,
-                    borderRadius: 14,
+                    color: "white",
+                    fontSize: fontSize(22),
+                    fontWeight: "700",
                   }}
                 >
-                  <Text
-                    style={{
-                      color: "#23ee09",
-                      fontWeight: "600",
-                    }}
-                  >
-                    {gym.isOpen === false ? "CLOSED" : "OPEN"}
-                  </Text>
-                </View>
+                  {gym.gymName || "Gym"}
+                </Text>
+
+                <Text
+                  numberOfLines={2}
+                  style={{
+                    color: "#777",
+                    marginTop: 6,
+                    fontSize: 14,
+                    lineHeight: 20,
+                  }}
+                >
+                  {gym.address || "Address not available"} •{" "}
+                  {formatDistance(gym.distanceKm)}
+                </Text>
               </View>
 
-              {/* PRICE */}
               <View
                 style={{
-                  marginTop: 22,
-                  flexDirection: "row",
-                  alignItems: "flex-end",
+                  backgroundColor: "rgba(0,245,212,0.12)",
+                  paddingHorizontal: 14,
+                  paddingVertical: 8,
+                  borderRadius: 14,
                 }}
               >
                 <Text
                   style={{
                     color: "#23ee09",
-                    fontSize: 30,
-                    fontWeight: "bold",
+                    fontWeight: "600",
                   }}
                 >
-                  ₹{gym.dailyPrice}
-                </Text>
-
-                <Text
-                  style={{
-                    color: "#777",
-                    marginLeft: 8,
-                    marginBottom: 4,
-                  }}
-                >
-                  / daily pass
+                  {gym.isOpen === false ? "CLOSED" : "OPEN"}
                 </Text>
               </View>
-            </TouchableOpacity>
-          ))
-        )}
+            </View>
 
-        <View style={{ height: 120 }} />
-      </SafeAreaView>
-    </ScrollView>
+            {/* PRICE */}
+            <View
+              style={{
+                marginTop: 22,
+                flexDirection: "row",
+                alignItems: "flex-end",
+              }}
+            >
+              <Text
+                style={{
+                  color: "#23ee09",
+                  fontSize: 30,
+                  fontWeight: "bold",
+                }}
+              >
+                ₹{gym.dailyPrice}
+              </Text>
+
+              <Text
+                style={{
+                  color: "#777",
+                  marginLeft: 8,
+                  marginBottom: 4,
+                }}
+              >
+                / daily pass
+              </Text>
+            </View>
+          </TouchableOpacity>
+        ))
+      )}
+    </Screen>
   );
 }

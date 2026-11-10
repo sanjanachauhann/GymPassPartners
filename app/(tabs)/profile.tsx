@@ -1,18 +1,12 @@
+import { Screen } from "@/components/layout/screen";
 import { useAuth } from "@/context/AuthContext";
+import { MAX_FONT_MULTIPLIER } from "@/hooks/use-responsive";
 import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as ImagePicker from "expo-image-picker";
 import { router } from "expo-router";
-import { useEffect, useState } from "react";
-import {
-  Alert,
-  ScrollView,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  View,
-} from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { useEffect, useRef, useState } from "react";
+import { Alert, Text, TextInput, TouchableOpacity, View } from "react-native";
 import {
   deleteAccount,
   updateProfile,
@@ -20,6 +14,8 @@ import {
 
 export default function Profile() {
   const { user, setUser } = useAuth();
+  const emailRef = useRef<TextInput>(null);
+  const phoneRef = useRef<TextInput>(null);
   const [name, setName] = useState(user?.ownerName ?? "");
   const [email, setEmail] = useState(user?.email ?? "");
   const [phone, setPhone] = useState(user?.phone ?? "");
@@ -203,281 +199,294 @@ export default function Profile() {
   };
 
   return (
-    <ScrollView
-      style={{
-        flex: 1,
-        backgroundColor: "#050505",
-      }}
-      showsVerticalScrollIndicator={false}
+    <Screen
+      edges={["top"]}
+      bottomOffset={32}
+      contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 32 }}
     >
-      <SafeAreaView style={{ paddingHorizontal: 20 }}>
-        {/* HEADER */}
-        <View style={{ marginTop: 10 }}>
-          <Text
-            style={{
-              color: "white",
-              fontSize: 26,
-              fontWeight: "bold",
-            }}
-          >
-            Profile
-          </Text>
-
-          <Text
-            style={{
-              color: "#777",
-              marginTop: 8,
-              fontSize: 13,
-            }}
-          >
-            Manage your personal information
-          </Text>
-        </View>
-
-        {/* PROFILE CARD */}
-        <View
+      {/* HEADER */}
+      <View style={{ marginTop: 10 }}>
+        <Text
           style={{
-            marginTop: 30,
-            backgroundColor: "#111",
-            borderRadius: 32,
-            padding: 24,
-            borderWidth: 1,
-            borderColor: "rgba(255,255,255,0.05)",
+            color: "white",
+            fontSize: 26,
+            fontWeight: "bold",
           }}
         >
-          {/* PROFILE TOP */}
+          Profile
+        </Text>
+
+        <Text
+          style={{
+            color: "#777",
+            marginTop: 8,
+            fontSize: 13,
+          }}
+        >
+          Manage your personal information
+        </Text>
+      </View>
+
+      {/* PROFILE CARD */}
+      <View
+        style={{
+          marginTop: 30,
+          backgroundColor: "#111",
+          borderRadius: 32,
+          padding: 24,
+          borderWidth: 1,
+          borderColor: "rgba(255,255,255,0.05)",
+        }}
+      >
+        {/* PROFILE TOP */}
+        <View
+          style={{
+            flexDirection: "row",
+            alignItems: "center",
+          }}
+        >
+          {/* PROFILE IMAGE */}
           <View
             style={{
-              flexDirection: "row",
-              alignItems: "center",
+              width: 90,
+              height: 90,
+              borderRadius: 45,
+              overflow: "hidden",
+              borderWidth: 2,
+              borderColor: "#23ee09",
             }}
           >
-            {/* PROFILE IMAGE */}
-            <View
+            <Ionicons
+              name="person"
+              size={28}
+              color="#23ee09"
               style={{
-                width: 90,
-                height: 90,
-                borderRadius: 45,
-                overflow: "hidden",
-                borderWidth: 2,
-                borderColor: "#23ee09",
+                alignSelf: "center",
+                flex: 1,
+                verticalAlign: "middle",
+              }}
+            />
+          </View>
+
+          {/* USER INFO */}
+          <View style={{ marginLeft: 18 }}>
+            <Text
+              style={{
+                color: "white",
+                fontSize: 22,
+                fontWeight: "700",
               }}
             >
-              <Ionicons
-                name="person"
-                size={28}
-                color="#23ee09"
+              {displayName}
+            </Text>
+
+            <Text
+              style={{
+                color: "#777",
+                marginTop: 6,
+                fontSize: 12,
+              }}
+            >
+              Premium Member
+            </Text>
+            {/* CHANGE PHOTO */}
+            <TouchableOpacity
+              activeOpacity={0.85}
+              style={{
+                marginTop: 14,
+                backgroundColor: "rgba(0,245,212,0.12)",
+                paddingHorizontal: 14,
+                paddingVertical: 10,
+                borderRadius: 16,
+                flexDirection: "row",
+                alignItems: "center",
+                alignSelf: "flex-start",
+              }}
+              onPress={changePhoto}
+            >
+              <Ionicons name="camera" size={16} color="#23ee09" />
+
+              <Text
                 style={{
-                  alignSelf: "center",
+                  color: "#23ee09",
+                  fontWeight: "600",
+                  marginLeft: 8,
+                }}
+              >
+                Change Photo
+              </Text>
+            </TouchableOpacity>
+            {/* LOGOUT BUTTON */}
+            <TouchableOpacity
+              onPress={handleLogout}
+              activeOpacity={0.85}
+              style={{
+                marginTop: 12,
+                backgroundColor: "rgba(255,77,77,0.12)",
+                paddingHorizontal: 14,
+                paddingVertical: 10,
+                borderRadius: 16,
+                flexDirection: "row",
+                alignItems: "center",
+                alignSelf: "flex-start",
+                borderWidth: 1,
+                borderColor: "rgba(255,77,77,0.15)",
+              }}
+            >
+              <Ionicons name="log-out-outline" size={16} color="#FF4D4D" />
+
+              <Text
+                style={{
+                  color: "#FF4D4D",
+                  fontWeight: "600",
+                  marginLeft: 8,
+                }}
+              >
+                Logout
+              </Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+        {/* FORM */}
+        <View style={{ marginTop: 35 }}>
+          {/* NAME */}
+          <View style={{ marginBottom: 24 }}>
+            <Text
+              style={{
+                color: "#777",
+                marginBottom: 10,
+                fontSize: 12,
+              }}
+            >
+              Full Name
+            </Text>
+
+            <View
+              style={{
+                backgroundColor: "#181818",
+                borderRadius: 18,
+                paddingHorizontal: 18,
+                paddingVertical: 16,
+                flexDirection: "row",
+                alignItems: "center",
+              }}
+            >
+              <Ionicons name="person-outline" size={20} color="#23ee09" />
+
+              <TextInput
+                value={name}
+                onChangeText={setName}
+                placeholder="Enter name"
+                placeholderTextColor="#777"
+                autoComplete="name"
+                returnKeyType="next"
+                submitBehavior="submit"
+                onSubmitEditing={() => emailRef.current?.focus()}
+                maxFontSizeMultiplier={MAX_FONT_MULTIPLIER}
+                style={{
                   flex: 1,
-                  verticalAlign: "middle",
+                  color: "white",
+                  marginLeft: 14,
+                  fontSize: 14,
                 }}
               />
             </View>
-
-            {/* USER INFO */}
-            <View style={{ marginLeft: 18 }}>
-              <Text
-                style={{
-                  color: "white",
-                  fontSize: 22,
-                  fontWeight: "700",
-                }}
-              >
-                {displayName}
-              </Text>
-
-              <Text
-                style={{
-                  color: "#777",
-                  marginTop: 6,
-                  fontSize: 12,
-                }}
-              >
-                Premium Member
-              </Text>
-              {/* CHANGE PHOTO */}
-              <TouchableOpacity
-                activeOpacity={0.85}
-                style={{
-                  marginTop: 14,
-                  backgroundColor: "rgba(0,245,212,0.12)",
-                  paddingHorizontal: 14,
-                  paddingVertical: 10,
-                  borderRadius: 16,
-                  flexDirection: "row",
-                  alignItems: "center",
-                  alignSelf: "flex-start",
-                }}
-                onPress={changePhoto}
-              >
-                <Ionicons name="camera" size={16} color="#23ee09" />
-
-                <Text
-                  style={{
-                    color: "#23ee09",
-                    fontWeight: "600",
-                    marginLeft: 8,
-                  }}
-                >
-                  Change Photo
-                </Text>
-              </TouchableOpacity>
-              {/* LOGOUT BUTTON */}
-              <TouchableOpacity
-                onPress={handleLogout}
-                activeOpacity={0.85}
-                style={{
-                  marginTop: 12,
-                  backgroundColor: "rgba(255,77,77,0.12)",
-                  paddingHorizontal: 14,
-                  paddingVertical: 10,
-                  borderRadius: 16,
-                  flexDirection: "row",
-                  alignItems: "center",
-                  alignSelf: "flex-start",
-                  borderWidth: 1,
-                  borderColor: "rgba(255,77,77,0.15)",
-                }}
-              >
-                <Ionicons name="log-out-outline" size={16} color="#FF4D4D" />
-
-                <Text
-                  style={{
-                    color: "#FF4D4D",
-                    fontWeight: "600",
-                    marginLeft: 8,
-                  }}
-                >
-                  Logout
-                </Text>
-              </TouchableOpacity>
-            </View>
           </View>
-          {/* FORM */}
-          <View style={{ marginTop: 35 }}>
-            {/* NAME */}
-            <View style={{ marginBottom: 24 }}>
-              <Text
-                style={{
-                  color: "#777",
-                  marginBottom: 10,
-                  fontSize: 12,
-                }}
-              >
-                Full Name
-              </Text>
 
-              <View
-                style={{
-                  backgroundColor: "#181818",
-                  borderRadius: 18,
-                  paddingHorizontal: 18,
-                  paddingVertical: 16,
-                  flexDirection: "row",
-                  alignItems: "center",
-                }}
-              >
-                <Ionicons name="person-outline" size={20} color="#23ee09" />
+          {/* EMAIL */}
+          <View style={{ marginBottom: 24 }}>
+            <Text
+              style={{
+                color: "#777",
+                marginBottom: 10,
+                fontSize: 14,
+              }}
+            >
+              Email Address
+            </Text>
 
-                <TextInput
-                  value={name}
-                  onChangeText={setName}
-                  placeholder="Enter name"
-                  placeholderTextColor="#777"
-                  style={{
-                    flex: 1,
-                    color: "white",
-                    marginLeft: 14,
-                    fontSize: 14,
-                  }}
-                />
-              </View>
-            </View>
+            <View
+              style={{
+                backgroundColor: "#181818",
+                borderRadius: 18,
+                paddingHorizontal: 18,
+                paddingVertical: 16,
+                flexDirection: "row",
+                alignItems: "center",
+              }}
+            >
+              <Ionicons name="mail-outline" size={20} color="#23ee09" />
 
-            {/* EMAIL */}
-            <View style={{ marginBottom: 24 }}>
-              <Text
+              <TextInput
+                ref={emailRef}
+                value={email}
+                onChangeText={setEmail}
+                placeholder="Enter email"
+                placeholderTextColor="#777"
+                keyboardType="email-address"
+                autoCapitalize="none"
+                autoComplete="email"
+                returnKeyType="next"
+                submitBehavior="submit"
+                onSubmitEditing={() => phoneRef.current?.focus()}
+                maxFontSizeMultiplier={MAX_FONT_MULTIPLIER}
                 style={{
-                  color: "#777",
-                  marginBottom: 10,
+                  flex: 1,
+                  color: "white",
+                  marginLeft: 14,
                   fontSize: 14,
                 }}
-              >
-                Email Address
-              </Text>
-
-              <View
-                style={{
-                  backgroundColor: "#181818",
-                  borderRadius: 18,
-                  paddingHorizontal: 18,
-                  paddingVertical: 16,
-                  flexDirection: "row",
-                  alignItems: "center",
-                }}
-              >
-                <Ionicons name="mail-outline" size={20} color="#23ee09" />
-
-                <TextInput
-                  value={email}
-                  onChangeText={setEmail}
-                  placeholder="Enter email"
-                  placeholderTextColor="#777"
-                  keyboardType="email-address"
-                  style={{
-                    flex: 1,
-                    color: "white",
-                    marginLeft: 14,
-                    fontSize: 14,
-                  }}
-                />
-              </View>
-            </View>
-
-            {/* PHONE */}
-            <View>
-              <Text
-                style={{
-                  color: "#777",
-                  marginBottom: 10,
-                  fontSize: 12,
-                }}
-              >
-                Phone Number
-              </Text>
-
-              <View
-                style={{
-                  backgroundColor: "#181818",
-                  borderRadius: 18,
-                  paddingHorizontal: 18,
-                  paddingVertical: 16,
-                  flexDirection: "row",
-                  alignItems: "center",
-                }}
-              >
-                <Ionicons name="call-outline" size={20} color="#23ee09" />
-
-                <TextInput
-                  value={phone}
-                  onChangeText={setPhone}
-                  placeholder="Enter phone"
-                  placeholderTextColor="#777"
-                  keyboardType="phone-pad"
-                  style={{
-                    flex: 1,
-                    color: "white",
-                    marginLeft: 14,
-                    fontSize: 14,
-                  }}
-                />
-              </View>
+              />
             </View>
           </View>
 
-          {/* SAVE BUTTON */}
-          {/* <TouchableOpacity
+          {/* PHONE */}
+          <View>
+            <Text
+              style={{
+                color: "#777",
+                marginBottom: 10,
+                fontSize: 12,
+              }}
+            >
+              Phone Number
+            </Text>
+
+            <View
+              style={{
+                backgroundColor: "#181818",
+                borderRadius: 18,
+                paddingHorizontal: 18,
+                paddingVertical: 16,
+                flexDirection: "row",
+                alignItems: "center",
+              }}
+            >
+              <Ionicons name="call-outline" size={20} color="#23ee09" />
+
+              <TextInput
+                ref={phoneRef}
+                value={phone}
+                onChangeText={setPhone}
+                placeholder="Enter phone"
+                placeholderTextColor="#777"
+                keyboardType="phone-pad"
+                autoComplete="tel"
+                returnKeyType="done"
+                maxFontSizeMultiplier={MAX_FONT_MULTIPLIER}
+                style={{
+                  flex: 1,
+                  color: "white",
+                  marginLeft: 14,
+                  fontSize: 14,
+                }}
+              />
+            </View>
+          </View>
+        </View>
+
+        {/* SAVE BUTTON */}
+        {/* <TouchableOpacity
             activeOpacity={0.85}
             style={{
               marginTop: 34,
@@ -503,67 +512,64 @@ export default function Profile() {
               Save Changes
             </Text>
           </TouchableOpacity> */}
-          <TouchableOpacity
-            activeOpacity={0.85}
-            disabled={saving}
+        <TouchableOpacity
+          activeOpacity={0.85}
+          disabled={saving}
+          style={{
+            marginTop: 34,
+            backgroundColor: saving ? "#75a86e" : "#23ee09",
+            paddingVertical: 18,
+            borderRadius: 22,
+            justifyContent: "center",
+            alignItems: "center",
+            flexDirection: "row",
+            opacity: saving ? 0.7 : 1,
+          }}
+          onPress={saveProfile}
+        >
+          <Ionicons name="save-outline" size={20} color="#050505" />
+
+          <Text
             style={{
-              marginTop: 34,
-              backgroundColor: saving ? "#75a86e" : "#23ee09",
-              paddingVertical: 18,
-              borderRadius: 22,
-              justifyContent: "center",
-              alignItems: "center",
-              flexDirection: "row",
-              opacity: saving ? 0.7 : 1,
+              color: "#050505",
+              fontWeight: "bold",
+              fontSize: 14,
+              marginLeft: 10,
             }}
-            onPress={saveProfile}
           >
-            <Ionicons name="save-outline" size={20} color="#050505" />
+            {saving ? "Saving..." : "Save Changes"}
+          </Text>
+        </TouchableOpacity>
+        {/* DELETE ACCOUNT */}
+        <TouchableOpacity
+          activeOpacity={0.85}
+          style={{
+            marginTop: 18,
+            backgroundColor: "rgba(255,0,0,0.12)",
+            paddingVertical: 18,
+            borderRadius: 22,
+            justifyContent: "center",
+            alignItems: "center",
+            flexDirection: "row",
+            borderWidth: 1,
+            borderColor: "rgba(255,0,0,0.15)",
+          }}
+          onPress={handleDeleteAccount}
+        >
+          <Ionicons name="trash-outline" size={20} color="#FF4D4D" />
 
-            <Text
-              style={{
-                color: "#050505",
-                fontWeight: "bold",
-                fontSize: 14,
-                marginLeft: 10,
-              }}
-            >
-              {saving ? "Saving..." : "Save Changes"}
-            </Text>
-          </TouchableOpacity>
-          {/* DELETE ACCOUNT */}
-          <TouchableOpacity
-            activeOpacity={0.85}
+          <Text
             style={{
-              marginTop: 18,
-              backgroundColor: "rgba(255,0,0,0.12)",
-              paddingVertical: 18,
-              borderRadius: 22,
-              justifyContent: "center",
-              alignItems: "center",
-              flexDirection: "row",
-              borderWidth: 1,
-              borderColor: "rgba(255,0,0,0.15)",
+              color: "#FF4D4D",
+              fontWeight: "bold",
+              fontSize: 14,
+              marginLeft: 10,
             }}
-            onPress={handleDeleteAccount}
           >
-            <Ionicons name="trash-outline" size={20} color="#FF4D4D" />
-
-            <Text
-              style={{
-                color: "#FF4D4D",
-                fontWeight: "bold",
-                fontSize: 14,
-                marginLeft: 10,
-              }}
-            >
-              Delete Account
-            </Text>
-          </TouchableOpacity>
-        </View>
-
-        <View style={{ height: 120 }} />
-      </SafeAreaView>
-    </ScrollView>
+            Delete Account
+          </Text>
+        </TouchableOpacity>
+      </View>
+    </Screen>
   );
 }

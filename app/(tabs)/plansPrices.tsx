@@ -1,17 +1,17 @@
 import { updateGymPasses } from "@/backend/services/gymService";
+import { Screen } from "@/components/layout/screen";
 import { useGym } from "@/context/GymContext";
+import { MAX_FONT_MULTIPLIER } from "@/hooks/use-responsive";
 import { Ionicons } from "@expo/vector-icons";
 import { useEffect, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
-  ScrollView,
   Text,
   TextInput,
   TouchableOpacity,
   View,
 } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
 
 export default function Memberships() {
   const { gym, loadingGym, refreshGym } = useGym();
@@ -176,7 +176,9 @@ export default function Memberships() {
         </View>
 
         <Text
+          numberOfLines={1}
           style={{
+            flex: 1,
             color: "white",
             fontSize: 16,
             fontWeight: "700",
@@ -221,6 +223,8 @@ export default function Memberships() {
           }}
           placeholder="Enter Price"
           placeholderTextColor="#555"
+          returnKeyType="done"
+          maxFontSizeMultiplier={MAX_FONT_MULTIPLIER}
           style={{
             flex: 1,
             color: "white",
@@ -234,94 +238,83 @@ export default function Memberships() {
   );
 
   return (
-    <SafeAreaView
-      style={{
-        flex: 1,
-        backgroundColor: "#050505",
+    <Screen
+      edges={["top"]}
+      bottomOffset={32}
+      contentContainerStyle={{
+        padding: 20,
+        paddingBottom: 32,
       }}
     >
-      <ScrollView
-        contentContainerStyle={{
-          padding: 20,
-          paddingBottom: 120,
+      {/* HEADER */}
+      <Text
+        style={{
+          color: "#FFFFFF",
+          fontSize: 26,
+          fontWeight: "700",
+          letterSpacing: -0.7,
         }}
-        showsVerticalScrollIndicator={false}
       >
-        {/* HEADER */}
+        Membership Plans
+      </Text>
+
+      <Text
+        style={{
+          color: "#888",
+          marginTop: 8,
+          marginBottom: 8,
+          fontSize: 13,
+        }}
+      >
+        Update the prices your customers see in the GymPass app.
+      </Text>
+
+      {/* GYM NAME */}
+      <Text
+        style={{
+          color: "#23ee09",
+          fontSize: 14,
+          fontWeight: "600",
+          marginBottom: 30,
+        }}
+      >
+        {gym.gymName}
+      </Text>
+
+      {/* DAILY */}
+      {renderCard("Daily Pass", "calendar", passes.daily, "daily")}
+
+      {/* WEEKLY */}
+      {renderCard("Weekly Pass", "calendar-outline", passes.weekly, "weekly")}
+
+      {/* MONTHLY */}
+      {renderCard("Monthly Pass", "calendar-number", passes.monthly, "monthly")}
+
+      {/* YEARLY */}
+      {renderCard("Yearly Pass", "trophy", passes.yearly, "yearly")}
+
+      {/* SAVE */}
+      <TouchableOpacity
+        activeOpacity={0.9}
+        onPress={saveMemberships}
+        style={{
+          backgroundColor: "#23ee09",
+          borderRadius: 22,
+          paddingVertical: 18,
+          alignItems: "center",
+          marginTop: 10,
+        }}
+      >
         <Text
           style={{
-            color: "#FFFFFF",
-            fontSize: 26,
-            fontWeight: "700",
-            letterSpacing: -0.7,
+            color: "#050505",
+            fontWeight: "bold",
+            fontSize: 15,
           }}
         >
-          Membership Plans
+          Save Changes
         </Text>
-
-        <Text
-          style={{
-            color: "#888",
-            marginTop: 8,
-            marginBottom: 8,
-            fontSize: 13,
-          }}
-        >
-          Update the prices your customers see in the GymPass app.
-        </Text>
-
-        {/* GYM NAME */}
-        <Text
-          style={{
-            color: "#23ee09",
-            fontSize: 14,
-            fontWeight: "600",
-            marginBottom: 30,
-          }}
-        >
-          {gym.gymName}
-        </Text>
-
-        {/* DAILY */}
-        {renderCard("Daily Pass", "calendar", passes.daily, "daily")}
-
-        {/* WEEKLY */}
-        {renderCard("Weekly Pass", "calendar-outline", passes.weekly, "weekly")}
-
-        {/* MONTHLY */}
-        {renderCard(
-          "Monthly Pass",
-          "calendar-number",
-          passes.monthly,
-          "monthly",
-        )}
-
-        {/* YEARLY */}
-        {renderCard("Yearly Pass", "trophy", passes.yearly, "yearly")}
-
-        {/* SAVE */}
-        <TouchableOpacity
-          activeOpacity={0.9}
-          onPress={saveMemberships}
-          style={{
-            backgroundColor: "#23ee09",
-            borderRadius: 22,
-            paddingVertical: 18,
-            alignItems: "center",
-            marginTop: 10,
-          }}
-        >
-          <Text
-            style={{
-              color: "#050505",
-              fontWeight: "bold",
-              fontSize: 15,
-            }}
-          >
-            Save Changes
-          </Text>
-        </TouchableOpacity>
-      </ScrollView>
-    </SafeAreaView>
+      </TouchableOpacity>
+    </Screen>
   );
 }

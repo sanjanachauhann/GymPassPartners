@@ -1,4 +1,5 @@
 import { createGymPartnerReq } from "@/backend/middleware/gymPartnerMiddleware";
+import { Screen } from "@/components/layout/screen";
 import { useGymRegistration } from "@/context/GymRegistration";
 import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
@@ -13,7 +14,6 @@ import {
   View,
 } from "react-native";
 import { CFPaymentGatewayService } from "react-native-cashfree-pg-sdk";
-import { SafeAreaView } from "react-native-safe-area-context";
 import {
   createCashfreeOrder,
   verifyCashfreePayment,
@@ -442,12 +442,41 @@ export default function Payment() {
     }
   };
   return (
-    <SafeAreaView
-      style={{
-        flex: 1,
-        backgroundColor: "#050505",
-        padding: 20,
-      }}
+    <Screen
+      contentContainerStyle={{ padding: 20 }}
+      footerStyle={{ paddingHorizontal: 20, paddingBottom: 20, paddingTop: 8 }}
+      footer={
+        <TouchableOpacity
+          onPress={completePayment}
+          disabled={isPaying}
+          activeOpacity={isPaying ? 1 : 0.85}
+          style={{
+            backgroundColor: isPaying ? "#1A1A1A" : "#23ee09",
+            paddingVertical: 18,
+            borderRadius: 20,
+            alignItems: "center",
+            justifyContent: "center",
+            flexDirection: "row",
+          }}
+        >
+          {isPaying ? (
+            <ActivityIndicator size="small" color="#777" />
+          ) : (
+            <Ionicons name="lock-closed" size={20} color="#050505" />
+          )}
+
+          <Text
+            style={{
+              color: isPaying ? "#777" : "#050505",
+              fontWeight: "bold",
+              marginLeft: 8,
+              fontSize: 16,
+            }}
+          >
+            {isPaying ? "Registering Gym..." : `Pay ₹${registrationFee}`}
+          </Text>
+        </TouchableOpacity>
+      }
     >
       <TouchableOpacity
         onPress={() => router.back()}
@@ -567,39 +596,6 @@ export default function Payment() {
           </Text>
         </View>
       </View>
-
-      <View style={{ flex: 1 }} />
-
-      <TouchableOpacity
-        onPress={completePayment}
-        disabled={isPaying}
-        activeOpacity={isPaying ? 1 : 0.85}
-        style={{
-          backgroundColor: isPaying ? "#1A1A1A" : "#23ee09",
-          paddingVertical: 18,
-          borderRadius: 20,
-          alignItems: "center",
-          justifyContent: "center",
-          flexDirection: "row",
-        }}
-      >
-        {isPaying ? (
-          <ActivityIndicator size="small" color="#777" />
-        ) : (
-          <Ionicons name="lock-closed" size={20} color="#050505" />
-        )}
-
-        <Text
-          style={{
-            color: isPaying ? "#777" : "#050505",
-            fontWeight: "bold",
-            marginLeft: 8,
-            fontSize: 16,
-          }}
-        >
-          {isPaying ? "Registering Gym..." : `Pay ₹${registrationFee}`}
-        </Text>
-      </TouchableOpacity>
-    </SafeAreaView>
+    </Screen>
   );
 }

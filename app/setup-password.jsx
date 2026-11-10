@@ -1,11 +1,10 @@
 import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
-  SafeAreaView,
   StyleSheet,
   Text,
   TextInput,
@@ -13,6 +12,8 @@ import {
   View,
 } from "react-native";
 
+import { Screen } from "@/components/layout/screen";
+import { MAX_FONT_MULTIPLIER } from "@/hooks/use-responsive";
 import { setupPassword } from "../backend/services/authService";
 
 export default function SetPassword() {
@@ -26,6 +27,7 @@ export default function SetPassword() {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
   const [loading, setLoading] = useState(false);
+  const confirmRef = useRef(null);
 
   const hasUpperCase = /[A-Z]/.test(password);
   const hasNumber = /\d/.test(password);
@@ -103,7 +105,11 @@ export default function SetPassword() {
   };
 
   return (
-    <SafeAreaView style={styles.container}>
+    <Screen
+      centerContent
+      backgroundColor="#0B0B0B"
+      contentContainerStyle={styles.container}
+    >
       <View style={styles.card}>
         <Text style={styles.logo}>🏋️</Text>
 
@@ -127,6 +133,12 @@ export default function SetPassword() {
             style={styles.input}
             value={password}
             onChangeText={setPassword}
+            autoComplete="new-password"
+            textContentType="newPassword"
+            returnKeyType="next"
+            submitBehavior="submit"
+            onSubmitEditing={() => confirmRef.current?.focus()}
+            maxFontSizeMultiplier={MAX_FONT_MULTIPLIER}
           />
 
           <TouchableOpacity onPress={() => setShowPassword(!showPassword)}>
@@ -148,8 +160,14 @@ export default function SetPassword() {
             placeholderTextColor="#777"
             secureTextEntry={!showConfirmPassword}
             style={styles.input}
+            ref={confirmRef}
             value={confirmPassword}
             onChangeText={setConfirmPassword}
+            autoComplete="new-password"
+            textContentType="newPassword"
+            returnKeyType="done"
+            onSubmitEditing={handleActivate}
+            maxFontSizeMultiplier={MAX_FONT_MULTIPLIER}
           />
 
           <TouchableOpacity
@@ -193,15 +211,12 @@ export default function SetPassword() {
           )}
         </TouchableOpacity>
       </View>
-    </SafeAreaView>
+    </Screen>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
-    flex: 1,
-    backgroundColor: "#0B0B0B",
-    justifyContent: "center",
     padding: 24,
   },
 
