@@ -1,9 +1,8 @@
 import axios from "axios";
-
-const API_BASE_URL = `${process.env.EXPO_PUBLIC_BASE_URL}/api`;
+import { API_BASE_URL } from "../services/apiConfig";
 
 export const createRazorpayOrder = async (amount) => {
-  const url = `${process.env.EXPO_PUBLIC_BASE_URL}/api/payment/create-order`;
+  const url = `${API_BASE_URL}/payment/create-order`;
 
   console.log("Creating Razorpay order");
   console.log("URL:", url);
@@ -31,8 +30,6 @@ export const createCashfreeOrder = async (
   email,
   phone,
 ) => {
-  console.log("BASE URL:", process.env.EXPO_PUBLIC_BASE_URL);
-
   const url = `${API_BASE_URL}/payment/cashfree/create-order`;
 
   console.log("FULL CASHFREE URL:", url);

@@ -1,4 +1,4 @@
-const API_BASE_URL = `${process.env.EXPO_BASE_URL}:${process.env.PORT}/api`;
+import { API_BASE_URL } from "../services/apiConfig";
 export const setupPayoutAccount = async (
   gymId: string,
   bankDetails: {

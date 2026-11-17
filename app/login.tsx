@@ -1,5 +1,6 @@
 import {
   Alert,
+  ActivityIndicator,
   Animated,
   Dimensions,
   KeyboardAvoidingView,
@@ -33,6 +34,7 @@ export default function Login() {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
   const [password, setPassword] = useState("");
+  const [isLoggingIn, setIsLoggingIn] = useState(false);
 
   // ANIMATIONS
   const fadeAnim = useRef(new Animated.Value(0)).current;
@@ -101,15 +103,16 @@ export default function Login() {
       return;
     }
 
+    if (isLoggingIn) return;
+
     try {
+      setIsLoggingIn(true);
       const data = await loginUser(email, password);
 
       await setToken(data.token);
       await setUser(data.user);
 
       await AsyncStorage.removeItem("lastActivatedPartner");
-
-      router.replace("/(tabs)");
 
       router.replace("/(tabs)");
     } catch (error: any) {
@@ -144,6 +147,8 @@ export default function Login() {
       }
 
       Alert.alert("Login Failed", message || "Invalid email or password");
+    } finally {
+      setIsLoggingIn(false);
     }
   };
 
@@ -311,10 +316,11 @@ export default function Login() {
             {/* LOGIN BUTTON */}
             <TouchableOpacity
               onPress={loginFunction}
+              disabled={isLoggingIn}
               activeOpacity={0.85}
               style={{
                 // backgroundColor: "#23ee09",
-                backgroundColor: "#23ee09",
+                backgroundColor: isLoggingIn ? "#8fb987" : "#23ee09",
                 marginTop: 32,
                 paddingVertical: 18,
                 borderRadius: 22,
@@ -323,7 +329,11 @@ export default function Login() {
                 flexDirection: "row",
               }}
             >
-              <Ionicons name="log-in-outline" size={20} color="#050505" />
+              {isLoggingIn ? (
+                <ActivityIndicator color="#050505" />
+              ) : (
+                <Ionicons name="log-in-outline" size={20} color="#050505" />
+              )}
 
               <Text
                 style={{
@@ -333,7 +343,7 @@ export default function Login() {
                   marginLeft: 10,
                 }}
               >
-                Login
+                {isLoggingIn ? "Logging in…" : "Login"}
               </Text>
             </TouchableOpacity>
             {/* SIGNUP BUTTON */}

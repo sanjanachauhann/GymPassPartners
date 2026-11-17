@@ -137,6 +137,23 @@ export const updateGymPasses = async (req, res) => {
   try {
     const { gymId } = req.params;
     const { passes } = req.body;
+    const passTypes = ["daily", "weekly", "monthly", "yearly"];
+
+    if (
+      !passes ||
+      typeof passes !== "object" ||
+      passTypes.some(
+        (type) =>
+          typeof passes[type] !== "number" ||
+          !Number.isFinite(passes[type]) ||
+          passes[type] < 0,
+      )
+    ) {
+      return res.status(400).json({
+        success: false,
+        message: "Enter a valid non-negative price for each membership plan.",
+      });
+    }
 
     console.log("=================================");
     console.log("UPDATE GYM PASSES");
@@ -153,7 +170,9 @@ export const updateGymPasses = async (req, res) => {
       });
     }
 
-    gym.passes = passes;
+    for (const type of passTypes) {
+      gym.set(`passes.${type}`, passes[type]);
+    }
 
     await gym.save();
 

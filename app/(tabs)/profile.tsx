@@ -67,22 +67,10 @@ export default function Profile() {
     try {
       setSaving(true);
 
-      // const response = await updateProfile({
-      //   name: trimmedName,
-      //   email: trimmedEmail,
-      //   phone: trimmedPhone,
-      // });
-
-      // Support either { user: {...} } or a direct user object.
-      // const updatedUser = response?.user ?? response;
-
-      // if (!updatedUser?._id) {
-      //   throw new Error("The server did not return the updated user.");
-      // }
       const response = await updateProfile({
-        name: name.trim(),
-        email: email.trim().toLowerCase(),
-        phone: phone.trim(),
+        name: trimmedName,
+        email: trimmedEmail,
+        phone: trimmedPhone,
         photo: profileImage,
       });
 
@@ -91,21 +79,13 @@ export default function Profile() {
       setUser(updatedUser);
       await AsyncStorage.setItem("user", JSON.stringify(updatedUser));
 
-      Alert.alert("Success", "Profile updated successfully.");
-      setUser(updatedUser);
-
-      await AsyncStorage.setItem("user", JSON.stringify(updatedUser));
-
       setName(updatedUser.ownerName ?? updatedUser.name ?? trimmedName);
       setEmail(updatedUser.email ?? trimmedEmail);
       setPhone(updatedUser.phone ?? trimmedPhone);
 
       Alert.alert("Success", "Your profile has been updated.");
     } catch (err: any) {
-      console.error(
-        "Update profile failed:",
-        err?.response?.data ?? err?.message ?? err,
-      );
+      console.error("Update profile failed:", err?.response?.data ?? err?.message ?? err);
 
       Alert.alert(
         "Update Failed",

@@ -1,10 +1,6 @@
 import axios from "axios";
+import { API_BASE_URL } from "./apiConfig";
 
-const API_BASE_URL = `${process.env.EXPO_PUBLIC_BASE_URL}/api`;
-// process.env.EXPO_PUBLIC_API_BASE_URL || "http://192.168.0.221:5001/api";
-// "http://192.168.0.245:5001/api";
-
-// const API_BASE_URL = "http://0.0.0.0:5001/api";
 const BASE_URL = `${API_BASE_URL}/auth`;
 
 // LOGIN

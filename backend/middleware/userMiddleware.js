@@ -37,30 +37,17 @@
 
 import axios from "axios";
 import { getAuthHeaders } from "./passMiddleware";
+import { API_BASE_URL } from "../services/apiConfig";
 
 // Use the environment variables configured in your Expo app.
-const BASE_URL = process.env.EXPO_PUBLIC_BASE_URL || process.env.EXPO_BASE_URL;
-
-const PORT = process.env.EXPO_PUBLIC_PORT || process.env.PORT;
-
-if (!BASE_URL) {
-  console.warn("API base URL is missing from your environment.");
-}
-
-const API_BASE_URL = BASE_URL
-  ? BASE_URL.endsWith("/api")
-    ? BASE_URL
-    : `${BASE_URL}${PORT ? `:${PORT}` : ""}/api`
-  : "";
-
 const AUTH_BASE_URL = `${API_BASE_URL}/auth`;
 
 export const updateProfile = async ({ name, email, phone, photo }) => {
-  if (!API_BASE_URL) {
-    throw new Error("API base URL is not configured.");
-  }
-
   const headers = await getAuthHeaders();
+
+  if (!headers) {
+    throw new Error("Please log in before updating your profile.");
+  }
 
   const response = await axios.put(
     `${AUTH_BASE_URL}/profile`,

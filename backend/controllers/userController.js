@@ -1,9 +1,9 @@
 import Partner from "../models/Partner.js";
-import Pass from "../models/Pass.js";
 
 export const updateProfile = async (req, res) => {
   try {
-    const { name, email, phone } = req.body;
+    const { ownerName, name, email, phone, photo } = req.body;
+    const updatedName = ownerName ?? name;
 
     const user = await Partner.findById(req.user.id);
 
@@ -13,9 +13,10 @@ export const updateProfile = async (req, res) => {
       });
     }
 
-    user.name = name;
+    if (updatedName !== undefined) user.ownerName = updatedName;
     user.email = email;
     user.phone = phone;
+    if (photo !== undefined) user.photo = photo;
 
     await user.save();
 
@@ -33,11 +34,13 @@ export const updateProfile = async (req, res) => {
 
 export const deleteAccount = async (req, res) => {
   try {
-    await Pass.deleteMany({
-      memberId: req.user.id,
-    });
+    const deletedPartner = await Partner.findByIdAndDelete(req.user.id);
 
-    await User.findByIdAndDelete(req.user.id);
+    if (!deletedPartner) {
+      return res.status(404).json({
+        message: "Partner account not found",
+      });
+    }
 
     res.json({
       message: "Account deleted successfully",

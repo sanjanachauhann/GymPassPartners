@@ -107,8 +107,7 @@
 // };
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import axios from "axios";
-
-const API_BASE_URL = process.env.EXPO_PUBLIC_BASE_URL;
+import { API_BASE_URL } from "./apiConfig";
 
 const authConfig = async () => {
   const token = await AsyncStorage.getItem("token");
@@ -139,7 +138,7 @@ export const setupCashfreeVendorApi = async (
   details: CashfreeVendorDetails,
 ) => {
   const response = await axios.post(
-    `${API_BASE_URL}/api/vendor/${gymId}/payout-account`,
+    `${API_BASE_URL}/vendor/${gymId}/payout-account`,
     details,
     await authConfig(),
   );
@@ -149,7 +148,7 @@ export const setupCashfreeVendorApi = async (
 
 export const getCashfreeVendorStatusApi = async (gymId: string) => {
   const response = await axios.get(
-    `${API_BASE_URL}/api/vendor/${gymId}/payout-account`,
+    `${API_BASE_URL}/vendor/${gymId}/payout-account`,
     await authConfig(),
   );
 
@@ -161,7 +160,7 @@ export const updateCashfreeVendorApi = async (
   details: CashfreeVendorDetails,
 ) => {
   const response = await axios.put(
-    `${API_BASE_URL}/api/vendor/${gymId}/payout-account`,
+    `${API_BASE_URL}/vendor/${gymId}/payout-account`,
     details,
     await authConfig(),
   );
@@ -171,7 +170,7 @@ export const updateCashfreeVendorApi = async (
 
 export const deleteCashfreeVendorApi = async (gymId: string) => {
   const response = await axios.delete(
-    `${API_BASE_URL}/api/vendor/${gymId}/payout-account`,
+    `${API_BASE_URL}/vendor/${gymId}/payout-account`,
     await authConfig(),
   );
 

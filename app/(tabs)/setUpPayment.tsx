@@ -948,6 +948,36 @@ export default function SetUpPayment() {
     );
   };
 
+  const retrySetup = async () => {
+    if (!gym?._id || saving) return;
+
+    setSaving(true);
+
+    try {
+      const result = await deleteCashfreeVendorApi(gym._id);
+
+      if (!result?.success) {
+        throw new Error(result?.message || "Cashfree could not delete the request.");
+      }
+
+      setExists(false);
+      setStatus(result.status || "DELETED");
+      setVendorId("");
+      setStatusError("");
+      setEditing(false);
+      setForm(EMPTY_FORM);
+    } catch (error: any) {
+      const message =
+        error?.response?.data?.message ||
+        error?.message ||
+        "Could not reset the Cashfree request. Please try again.";
+      setStatusError(message);
+      Alert.alert("Unable to retry setup", message);
+    } finally {
+      setSaving(false);
+    }
+  };
+
   const hasRequest = exists && status !== "DELETED";
   const statusInfo = getStatusDisplay(status);
 
@@ -1082,17 +1112,19 @@ export default function SetUpPayment() {
               </Text>
 
               <TouchableOpacity
-                onPress={() => void loadStatus()}
+                disabled={saving}
+                onPress={() => void retrySetup()}
                 style={{
                   marginTop: 15,
                   alignSelf: "flex-start",
                   padding: 11,
                   backgroundColor: "#292929",
                   borderRadius: 10,
+                  opacity: saving ? 0.5 : 1,
                 }}
               >
                 <Text style={{ color: "#fff", fontWeight: "700" }}>
-                  Try again
+                  {saving ? "Resetting request..." : "Try again"}
                 </Text>
               </TouchableOpacity>
             </View>

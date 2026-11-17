@@ -1,6 +1,6 @@
 import axios from "axios";
+import { API_BASE_URL } from "../services/apiConfig";
 
-const API_BASE_URL = `${process.env.EXPO_PUBLIC_BASE_URL}/api`;
 const BASE_URL = `${API_BASE_URL}/gymPartnerRequest`;
 
 export const createGymPartnerReq = async (registration) => {

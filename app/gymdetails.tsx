@@ -1,6 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import Constants from "expo-constants";
+import * as Location from "expo-location";
 import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
 import { useCallback, useEffect, useState } from "react";
 import {
@@ -44,7 +45,9 @@ type SavedLocation = {
 
 const GOOGLE_PLACES_API_KEY =
   process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY ||
-  Constants.expoConfig?.extra?.googleMapsApiKey;
+  Constants.expoConfig?.extra?.googleMapsApiKey ||
+  Constants.manifest2?.extra?.expoClient?.extra?.googleMapsApiKey ||
+  Constants.manifest?.extra?.googleMapsApiKey;
 
 const getRadiusValue = (distance: string) =>
   Number(distance.replace(" KM", ""));
@@ -98,6 +101,11 @@ export default function GymDetails() {
 
   const { latitude, longitude, setLocation } = useLocationStore();
 
+  const [locationMessage, setLocationMessage] = useState(
+    "Getting your location…",
+  );
+  const [gymsError, setGymsError] = useState("");
+
   const openGymDetails = async (gym: Gym) => {
     // const partner = JSON.parse((await AsyncStorage.getItem("partner")) || "{}");
     router.push({
@@ -137,39 +145,141 @@ export default function GymDetails() {
     );
   });
 
+  // const loadNearbyGyms = useCallback(async () => {
+  //   if (!latitude || !longitude || !GOOGLE_PLACES_API_KEY) {
+  //     setGymsNearby([]);
+  //     return;
+  //   }
+
+  //   try {
+  //     setIsLoadingGyms(true);
+
+  //     const radiusInMeters = getRadiusValue(selectedDistance) * 1000;
+
+  //     const response = await fetch(
+  //       `https://maps.googleapis.com/maps/api/place/nearbysearch/json?location=${latitude},${longitude}&radius=${radiusInMeters}&type=gym&key=${GOOGLE_PLACES_API_KEY}`,
+  //     );
+
+  //     const data = await response.json();
+
+  //     // console.log("Google gyms:", data);
+
+  //     const gyms =
+  //       data.results?.map((place: any) => ({
+  //         id: place.place_id,
+  //         placeId: place.place_id,
+  //         gymName: place.name,
+  //         address: place.vicinity,
+  //         rating: place.rating,
+  //         isOpen: place.opening_hours?.open_now,
+  //         dailyPrice: 199, // temporary until you connect your DB
+  //       })) || [];
+  //     setGymsNearby(gyms);
+  //   } catch (error) {
+  //     // console.log("Failed to fetch gyms:", error);
+  //     setGymsNearby([]);
+  //   } finally {
+  //     setIsLoadingGyms(false);
+  //   }
+  // }, [latitude, longitude, selectedDistance]);
+
   const loadNearbyGyms = useCallback(async () => {
-    if (!latitude || !longitude || !GOOGLE_PLACES_API_KEY) {
+    if (latitude === 0 || longitude === 0) {
       setGymsNearby([]);
+      return;
+    }
+
+    if (!GOOGLE_PLACES_API_KEY) {
+      setGymsNearby([]);
+      setGymsError("Google Maps API key is missing from this build.");
       return;
     }
 
     try {
       setIsLoadingGyms(true);
+      setGymsError("");
 
-      const radiusInMeters = getRadiusValue(selectedDistance) * 1000;
+      const radiusKm = getRadiusValue(selectedDistance);
+      const params = new URLSearchParams({
+        location: `${latitude},${longitude}`,
+        radius: String(radiusKm * 1000),
+        type: "gym",
+        key: GOOGLE_PLACES_API_KEY,
+      });
 
       const response = await fetch(
-        `https://maps.googleapis.com/maps/api/place/nearbysearch/json?location=${latitude},${longitude}&radius=${radiusInMeters}&type=gym&key=${GOOGLE_PLACES_API_KEY}`,
+        `https://maps.googleapis.com/maps/api/place/nearbysearch/json?${params.toString()}`,
       );
 
       const data = await response.json();
 
-      // console.log("Google gyms:", data);
+      if (
+        !response.ok ||
+        (data.status !== "OK" && data.status !== "ZERO_RESULTS")
+      ) {
+        setGymsNearby([]);
+        setGymsError(
+          `Google Places error: ${
+            data.error_message || data.status || "Unknown error"
+          }`,
+        );
+        return;
+      }
 
-      const gyms =
-        data.results?.map((place: any) => ({
-          id: place.place_id,
-          placeId: place.place_id,
-          gymName: place.name,
-          address: place.vicinity,
-          rating: place.rating,
-          isOpen: place.opening_hours?.open_now,
-          dailyPrice: 199, // temporary until you connect your DB
-        })) || [];
+      const toRadians = (value: number) => (value * Math.PI) / 180;
+
+      const distanceBetweenKm = (lat: number, lng: number) => {
+        const earthRadiusKm = 6371;
+        const dLat = toRadians(lat - latitude);
+        const dLng = toRadians(lng - longitude);
+
+        const a =
+          Math.sin(dLat / 2) ** 2 +
+          Math.cos(toRadians(latitude)) *
+            Math.cos(toRadians(lat)) *
+            Math.sin(dLng / 2) ** 2;
+
+        return earthRadiusKm * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+      };
+
+      const gyms: Gym[] = (data.results || [])
+        .map((place: any) => {
+          const lat = place.geometry?.location?.lat;
+          const lng = place.geometry?.location?.lng;
+
+          const distanceKm =
+            typeof lat === "number" && typeof lng === "number"
+              ? distanceBetweenKm(lat, lng)
+              : undefined;
+
+          return {
+            id: place.place_id,
+            placeId: place.place_id,
+            gymName: place.name,
+            address: place.vicinity || place.formatted_address || "",
+            rating: place.rating,
+            isOpen: place.opening_hours?.open_now,
+            distanceKm,
+            dailyPrice: 199,
+          };
+        })
+        .filter(
+          (gym: Gym) =>
+            typeof gym.distanceKm !== "number" ||
+            gym.distanceKm <= radiusKm + 0.05,
+        )
+        .sort(
+          (a: Gym, b: Gym) =>
+            (a.distanceKm ?? Infinity) - (b.distanceKm ?? Infinity),
+        );
+
       setGymsNearby(gyms);
     } catch (error) {
-      // console.log("Failed to fetch gyms:", error);
+      console.error("Failed to fetch nearby gyms:", error);
       setGymsNearby([]);
+      setGymsError(
+        "Unable to contact Google Places. Check your internet connection and API settings.",
+      );
     } finally {
       setIsLoadingGyms(false);
     }
@@ -185,24 +295,125 @@ export default function GymDetails() {
     }, [loadNearbyGyms]),
   );
 
+  // useEffect(() => {
+  //   const loadSavedLocation = async () => {
+  //     if (latitude && longitude) {
+  //       return;
+  //     }
+
+  //     const savedLocation = await readSavedLocation();
+
+  //     if (savedLocation) {
+  //       setLocation(
+  //         savedLocation.location,
+  //         savedLocation.latitude,
+  //         savedLocation.longitude,
+  //       );
+  //     }
+  //   };
+
+  //   loadSavedLocation();
+  // }, [latitude, longitude, setLocation]);
+
   useEffect(() => {
-    const loadSavedLocation = async () => {
-      if (latitude && longitude) {
-        return;
-      }
+    let cancelled = false;
 
-      const savedLocation = await readSavedLocation();
+    const initializeLocation = async () => {
+      try {
+        // Reuse a location already selected in the app.
+        if (latitude !== 0 && longitude !== 0) {
+          setLocationMessage("Using your selected location");
+          return;
+        }
 
-      if (savedLocation) {
-        setLocation(
-          savedLocation.location,
-          savedLocation.latitude,
-          savedLocation.longitude,
+        // Restore the previously saved location first.
+        const saved = await readSavedLocation();
+        if (cancelled) return;
+
+        if (saved && saved.latitude !== 0 && saved.longitude !== 0) {
+          setLocation(saved.location, saved.latitude, saved.longitude);
+          setLocationMessage(`Showing gyms near ${saved.location}`);
+          return;
+        }
+
+        // Ask the user for permission to use device location.
+        setLocationMessage("Requesting location permission…");
+
+        const permission = await Location.requestForegroundPermissionsAsync();
+
+        if (cancelled) return;
+
+        if (!permission.granted) {
+          setLocationMessage(
+            "Location permission denied. Enable it in phone settings or search for a location.",
+          );
+          return;
+        }
+
+        // Get the current GPS position.
+        setLocationMessage("Finding your current location…");
+
+        const position = await Location.getCurrentPositionAsync({
+          accuracy: Location.Accuracy.Balanced,
+        });
+
+        if (cancelled) return;
+
+        const lat = position.coords.latitude;
+        const lng = position.coords.longitude;
+        let address = "Current location";
+
+        // Convert GPS coordinates to a readable address.
+        try {
+          const results = await Location.reverseGeocodeAsync({
+            latitude: lat,
+            longitude: lng,
+          });
+
+          if (results.length > 0) {
+            const place = results[0];
+
+            address =
+              [place.name, place.street, place.district, place.city]
+                .filter(Boolean)
+                .filter((value, index, all) => all.indexOf(value) === index)
+                .join(", ") || address;
+          }
+        } catch (error) {
+          console.warn("Reverse geocoding failed:", error);
+        }
+
+        if (cancelled) return;
+
+        // Store the location for this screen and future visits.
+        setLocation(address, lat, lng);
+
+        await AsyncStorage.setItem(
+          "selected_location",
+          JSON.stringify({
+            location: address,
+            latitude: lat,
+            longitude: lng,
+          }),
         );
+
+        setLocationMessage(`Showing gyms near ${address}`);
+      } catch (error) {
+        console.error("Location initialization failed:", error);
+
+        if (!cancelled) {
+          setLocationMessage(
+            "Could not get your location. Search for a location instead.",
+          );
+        }
       }
     };
 
-    loadSavedLocation();
+    initializeLocation();
+
+    return () => {
+      cancelled = true;
+    };
   }, [latitude, longitude, setLocation]);
 
   useEffect(() => {
@@ -300,7 +511,7 @@ export default function GymDetails() {
       ) {
         setSearchQuery("");
         setLocation(selectedAddress, selectedLatitude, selectedLongitude);
-
+        setLocationMessage(`Showing gyms near ${selectedAddress}`);
         await AsyncStorage.setItem(
           "selected_location",
           JSON.stringify({
@@ -351,6 +562,16 @@ export default function GymDetails() {
             Search your gym
           </Text>
         </View>
+
+        <Text
+          style={{
+            color: "#23ee09",
+            marginTop: 8,
+            fontSize: 12,
+          }}
+        >
+          {locationMessage}
+        </Text>
 
         <View
           style={{
@@ -711,7 +932,7 @@ export default function GymDetails() {
               borderColor: "rgba(255,255,255,0.06)",
             }}
           >
-            <Text
+            {/* <Text
               style={{
                 color: "white",
                 fontSize: 20,
@@ -719,9 +940,18 @@ export default function GymDetails() {
               }}
             >
               No gyms found
+            </Text> */}
+            <Text
+              style={{
+                color: "white",
+                fontSize: 20,
+                fontWeight: "700",
+              }}
+            >
+              {gymsError ? "Unable to load gyms" : "No gyms found"}
             </Text>
 
-            <Text
+            {/* <Text
               style={{
                 color: "#777",
                 marginTop: 8,
@@ -730,6 +960,17 @@ export default function GymDetails() {
               }}
             >
               Try increasing the distance radius or choosing another location.
+            </Text> */}
+            <Text
+              style={{
+                color: "#777",
+                marginTop: 8,
+                fontSize: 14,
+                lineHeight: 20,
+              }}
+            >
+              {gymsError ||
+                "Try increasing the distance radius or choosing another location."}
             </Text>
           </View>
         ) : (

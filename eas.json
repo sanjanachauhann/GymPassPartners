@@ -7,6 +7,7 @@
     "development": {
       "developmentClient": true,
       "distribution": "internal",
+      "environment": "development",
       "android": {
         "buildType": "apk"
       }
@@ -18,7 +19,14 @@
       }
     },
     "production": {
-      "autoIncrement": true
+      "autoIncrement": true,
+      "environment": "production",
+      "android": {
+        "buildType": "apk"
+      },
+      "env": {
+        "GOOGLE_MAPS_API_KEY": "secret:GOOGLE_MAPS_API_KEY"
+      }
     }
   },
   "submit": {
