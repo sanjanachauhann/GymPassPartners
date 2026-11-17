@@ -1,19 +1,11 @@
+import { BottomSheetModal } from "@/components/layout/bottom-sheet-modal";
+import { Screen } from "@/components/layout/screen";
 import { useGymRegistration } from "@/context/GymRegistration";
+import { MAX_FONT_MULTIPLIER } from "@/hooks/use-responsive";
 import { Ionicons } from "@expo/vector-icons";
 import { router, useLocalSearchParams } from "expo-router";
 import { useEffect, useState } from "react";
-import {
-  Alert,
-  KeyboardAvoidingView,
-  Modal,
-  Platform,
-  ScrollView,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  View,
-} from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { Alert, Text, TextInput, TouchableOpacity, View } from "react-native";
 
 type PassPeriod = "day" | "week" | "month" | "quarterly" | "yearly";
 
@@ -113,65 +105,145 @@ export default function GymDetails() {
     });
   };
 
+  const savePrice = () => {
+    setRegistration((prev) => ({
+      ...prev,
+
+      passes: {
+        ...prev.passes,
+
+        ...(selectedPassType === "Daily Pass" && {
+          daily: price,
+        }),
+
+        ...(selectedPassType === "Weekly Pass" && {
+          weekly: price,
+        }),
+
+        ...(selectedPassType === "Monthly Pass" && {
+          monthly: price,
+        }),
+
+        ...(selectedPassType === "Yearly Pass" && {
+          yearly: price,
+        }),
+      },
+    }));
+    setShowPriceModal(false);
+  };
+
   return (
-    <SafeAreaView
-      style={{
-        flex: 1,
-        backgroundColor: "#050505",
+    <Screen
+      contentContainerStyle={{
+        paddingHorizontal: 20,
+        paddingTop: 10,
+        paddingBottom: 24,
       }}
-    >
-      <ScrollView
-        style={{ flex: 1 }}
-        contentContainerStyle={{
-          paddingHorizontal: 20,
-          paddingTop: 10,
-          paddingBottom: 130,
-        }}
-        showsVerticalScrollIndicator={false}
-      >
+      // Pinned button: sits above the home indicator / gesture bar on every phone.
+      footerStyle={{
+        paddingHorizontal: 20,
+        paddingTop: 16,
+        paddingBottom: 16,
+        borderTopWidth: 1,
+        borderTopColor: "#111",
+      }}
+      footer={
         <TouchableOpacity
-          onPress={() => router.back()}
+          onPress={payForPass}
           activeOpacity={0.85}
           style={{
-            width: 46,
-            height: 46,
-            borderRadius: 23,
-            backgroundColor: "#111",
-            alignItems: "center",
+            backgroundColor: "#23EE09",
+            height: 62,
+            borderRadius: 22,
             justifyContent: "center",
+            alignItems: "center",
+            flexDirection: "row",
+          }}
+        >
+          <Ionicons name="checkmark-circle" size={22} color="#050505" />
+
+          <Text
+            maxFontSizeMultiplier={MAX_FONT_MULTIPLIER}
+            style={{
+              color: "#050505",
+              marginLeft: 10,
+              fontWeight: "bold",
+              fontSize: 14,
+            }}
+          >
+            Register Gym
+          </Text>
+        </TouchableOpacity>
+      }
+    >
+      <TouchableOpacity
+        onPress={() => router.back()}
+        activeOpacity={0.85}
+        style={{
+          width: 46,
+          height: 46,
+          borderRadius: 23,
+          backgroundColor: "#111",
+          alignItems: "center",
+          justifyContent: "center",
+          borderWidth: 1,
+          borderColor: "rgba(255,255,255,0.06)",
+        }}
+      >
+        <Ionicons name="chevron-back" size={24} color="white" />
+      </TouchableOpacity>
+
+      <View style={{ marginTop: 26 }}>
+        <Text
+          style={{
+            color: "white",
+            fontSize: 24,
+            fontWeight: "bold",
+          }}
+        >
+          {/* {params.isActive === "true" ? "Create Pass" : "Renew pass"} */}
+          Select prices
+        </Text>
+
+        <Text
+          style={{
+            color: "#777",
+            marginTop: 8,
+            fontSize: 12,
+          }}
+        >
+          Select the pass price for the specific duration
+        </Text>
+      </View>
+
+      <View style={{ marginTop: 34 }}>
+        <Text style={{ color: "#777", marginBottom: 10, fontSize: 13 }}>
+          Gym Name
+        </Text>
+
+        <View
+          style={{
+            backgroundColor: "#111",
+            borderRadius: 20,
+            paddingHorizontal: 18,
+            paddingVertical: 18,
             borderWidth: 1,
             borderColor: "rgba(255,255,255,0.06)",
           }}
         >
-          <Ionicons name="chevron-back" size={24} color="white" />
-        </TouchableOpacity>
-
-        <View style={{ marginTop: 26 }}>
           <Text
-            style={{
-              color: "white",
-              fontSize: 24,
-              fontWeight: "bold",
-            }}
+            numberOfLines={1}
+            style={{ color: "white", fontSize: 13, fontWeight: "700" }}
           >
-            {/* {params.isActive === "true" ? "Create Pass" : "Renew pass"} */}
-            Select prices
-          </Text>
-
-          <Text
-            style={{
-              color: "#777",
-              marginTop: 8,
-              fontSize: 12,
-            }}
-          >
-            Select the pass price for the specific duration
+            {gymName}
           </Text>
         </View>
+      </View>
 
+      {params.gymAddress && (
         <View style={{ marginTop: 34 }}>
           <Text style={{ color: "#777", marginBottom: 10, fontSize: 13 }}>
-            Gym Name
+            Address
           </Text>
 
           <View
@@ -188,274 +260,163 @@ export default function GymDetails() {
               numberOfLines={1}
               style={{ color: "white", fontSize: 13, fontWeight: "700" }}
             >
-              {gymName}
+              {params.gymAddress}
             </Text>
           </View>
         </View>
+      )}
 
-        {params.gymAddress && (
-          <View style={{ marginTop: 34 }}>
-            <Text style={{ color: "#777", marginBottom: 10, fontSize: 13 }}>
-              Address
-            </Text>
+      {/* PASS PRICES */}
+
+      <Text
+        style={{
+          color: "white",
+          marginTop: 42,
+          fontSize: 20,
+          fontWeight: "700",
+        }}
+      >
+        Pass Prices
+      </Text>
+
+      <Text
+        style={{
+          color: "#666",
+          marginTop: 8,
+          marginBottom: 22,
+        }}
+      >
+        Set prices that users will pay.
+      </Text>
+
+      {["Daily Pass", "Weekly Pass", "Monthly Pass", "Yearly Pass"].map(
+        (item) => (
+          <TouchableOpacity
+            key={item}
+            activeOpacity={0.8}
+            onPress={() => {
+              setSelectedPassType(item);
+              setPrice("");
+              setShowPriceModal(true);
+            }}
+            style={{
+              backgroundColor: "#111",
+              marginBottom: 16,
+              borderRadius: 22,
+              padding: 20,
+              borderWidth: 1,
+              borderColor: "#1A1A1A",
+              flexDirection: "row",
+              justifyContent: "space-between",
+              alignItems: "center",
+            }}
+          >
+            <View>
+              <Text
+                style={{
+                  color: "white",
+                  fontSize: 16,
+                  fontWeight: "600",
+                }}
+              >
+                {item}
+              </Text>
+
+              <Text
+                style={{
+                  color: "#666",
+                  marginTop: 6,
+                }}
+              >
+                Tap to set price
+              </Text>
+            </View>
 
             <View
               style={{
-                backgroundColor: "#111",
-                borderRadius: 20,
+                backgroundColor: "rgba(35,238,9,0.12)",
                 paddingHorizontal: 18,
-                paddingVertical: 18,
-                borderWidth: 1,
-                borderColor: "rgba(255,255,255,0.06)",
+                paddingVertical: 10,
+                borderRadius: 16,
               }}
             >
               <Text
-                numberOfLines={1}
-                style={{ color: "white", fontSize: 13, fontWeight: "700" }}
+                style={{
+                  color: "#23EE09",
+                  fontWeight: "700",
+                  fontSize: 14,
+                }}
               >
-                {params.gymAddress}
+                ₹
+                {item === "Daily Pass"
+                  ? registration.passes.daily || "0"
+                  : item === "Weekly Pass"
+                    ? registration.passes.weekly || "0"
+                    : item === "Monthly Pass"
+                      ? registration.passes.monthly || "0"
+                      : registration.passes.yearly || "0"}
               </Text>
             </View>
-          </View>
-        )}
+          </TouchableOpacity>
+        ),
+      )}
 
-        {/* PASS PRICES */}
-
+      <BottomSheetModal
+        visible={showPriceModal}
+        onClose={() => setShowPriceModal(false)}
+      >
         <Text
           style={{
             color: "white",
-            marginTop: 42,
             fontSize: 20,
             fontWeight: "700",
           }}
         >
-          Pass Prices
+          {selectedPassType}
         </Text>
 
-        <Text
+        <TextInput
+          value={price}
+          onChangeText={(text) => setPrice(text.replace(/[^0-9]/g, ""))}
+          keyboardType="number-pad"
+          placeholder="Enter Price"
+          placeholderTextColor="#666"
+          autoFocus
+          returnKeyType="done"
+          onSubmitEditing={savePrice}
+          maxFontSizeMultiplier={MAX_FONT_MULTIPLIER}
           style={{
-            color: "#666",
-            marginTop: 8,
-            marginBottom: 22,
+            backgroundColor: "#1A1A1A",
+            color: "white",
+            marginTop: 20,
+            borderRadius: 18,
+            padding: 18,
+            fontSize: 18,
           }}
-        >
-          Set prices that users will pay.
-        </Text>
+        />
 
-        {["Daily Pass", "Weekly Pass", "Monthly Pass", "Yearly Pass"].map(
-          (item) => (
-            <TouchableOpacity
-              key={item}
-              activeOpacity={0.8}
-              onPress={() => {
-                setSelectedPassType(item);
-                setPrice("");
-                setShowPriceModal(true);
-              }}
-              style={{
-                backgroundColor: "#111",
-                marginBottom: 16,
-                borderRadius: 22,
-                padding: 20,
-                borderWidth: 1,
-                borderColor: "#1A1A1A",
-                flexDirection: "row",
-                justifyContent: "space-between",
-                alignItems: "center",
-              }}
-            >
-              <View>
-                <Text
-                  style={{
-                    color: "white",
-                    fontSize: 16,
-                    fontWeight: "600",
-                  }}
-                >
-                  {item}
-                </Text>
-
-                <Text
-                  style={{
-                    color: "#666",
-                    marginTop: 6,
-                  }}
-                >
-                  Tap to set price
-                </Text>
-              </View>
-
-              <View
-                style={{
-                  backgroundColor: "rgba(35,238,9,0.12)",
-                  paddingHorizontal: 18,
-                  paddingVertical: 10,
-                  borderRadius: 16,
-                }}
-              >
-                <Text
-                  style={{
-                    color: "#23EE09",
-                    fontWeight: "700",
-                    fontSize: 14,
-                  }}
-                >
-                  ₹
-                  {item === "Daily Pass"
-                    ? registration.passes.daily || "0"
-                    : item === "Weekly Pass"
-                      ? registration.passes.weekly || "0"
-                      : item === "Monthly Pass"
-                        ? registration.passes.monthly || "0"
-                        : registration.passes.yearly || "0"}
-                </Text>
-              </View>
-            </TouchableOpacity>
-          ),
-        )}
-      </ScrollView>
-      {/* BUTTON */}
-
-      <View
-        style={{
-          position: "absolute",
-          bottom: 0,
-          left: 0,
-          right: 0,
-
-          backgroundColor: "#050505",
-
-          padding: 20,
-
-          borderTopWidth: 1,
-
-          borderTopColor: "#111",
-        }}
-      >
         <TouchableOpacity
-          onPress={payForPass}
-          activeOpacity={0.85}
+          onPress={savePrice}
           style={{
+            marginTop: 24,
             backgroundColor: "#23EE09",
-            height: 62,
-            borderRadius: 22,
+            borderRadius: 18,
+            height: 50,
             justifyContent: "center",
             alignItems: "center",
-            flexDirection: "row",
           }}
         >
-          <Ionicons name="checkmark-circle" size={22} color="#050505" />
-
           <Text
             style={{
               color: "#050505",
-              marginLeft: 10,
               fontWeight: "bold",
               fontSize: 14,
             }}
           >
-            Register Gym
+            Save Price
           </Text>
         </TouchableOpacity>
-      </View>
-
-      <Modal visible={showPriceModal} transparent animationType="slide">
-        <KeyboardAvoidingView
-          style={{ flex: 1 }}
-          behavior={Platform.OS === "ios" ? "padding" : "height"}
-        >
-          <View
-            style={{
-              flex: 1,
-              backgroundColor: "rgba(0,0,0,0.6)",
-              justifyContent: "flex-end",
-            }}
-          >
-            <View
-              style={{
-                backgroundColor: "#111",
-                borderTopLeftRadius: 28,
-                borderTopRightRadius: 28,
-                padding: 24,
-              }}
-            >
-              <Text
-                style={{
-                  color: "white",
-                  fontSize: 20,
-                  fontWeight: "700",
-                }}
-              >
-                {selectedPassType}
-              </Text>
-
-              <TextInput
-                value={price}
-                onChangeText={setPrice}
-                keyboardType="numeric"
-                placeholder="Enter Price"
-                placeholderTextColor="#666"
-                style={{
-                  backgroundColor: "#1A1A1A",
-                  color: "white",
-                  marginTop: 20,
-                  borderRadius: 18,
-                  padding: 18,
-                  fontSize: 18,
-                }}
-              />
-
-              <TouchableOpacity
-                onPress={() => {
-                  setRegistration((prev) => ({
-                    ...prev,
-
-                    passes: {
-                      ...prev.passes,
-
-                      ...(selectedPassType === "Daily Pass" && {
-                        daily: price,
-                      }),
-
-                      ...(selectedPassType === "Weekly Pass" && {
-                        weekly: price,
-                      }),
-
-                      ...(selectedPassType === "Monthly Pass" && {
-                        monthly: price,
-                      }),
-
-                      ...(selectedPassType === "Yearly Pass" && {
-                        yearly: price,
-                      }),
-                    },
-                  }));
-                  setShowPriceModal(false);
-                }}
-                style={{
-                  marginTop: 24,
-                  backgroundColor: "#23EE09",
-                  borderRadius: 18,
-                  height: 50,
-                  justifyContent: "center",
-                  alignItems: "center",
-                  bottom: "10%",
-                }}
-              >
-                <Text
-                  style={{
-                    color: "#050505",
-                    fontWeight: "bold",
-                    fontSize: 14,
-                  }}
-                >
-                  Save Price
-                </Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </KeyboardAvoidingView>
-      </Modal>
-    </SafeAreaView>
+      </BottomSheetModal>
+    </Screen>
   );
 }

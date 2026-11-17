@@ -9,6 +9,8 @@ export default function TabsLayout() {
     <Tabs
       screenOptions={{
         headerShown: false,
+        // Stops the tab bar riding up on top of the keyboard on Android.
+        tabBarHideOnKeyboard: true,
         tabBarStyle: {
           backgroundColor: "#0A0A0A",
           borderTopWidth: 0,

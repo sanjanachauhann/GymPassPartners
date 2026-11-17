@@ -1,9 +1,6 @@
 import {
   ActivityIndicator,
   Animated,
-  KeyboardAvoidingView,
-  Platform,
-  ScrollView,
   Text,
   TextInput,
   TouchableOpacity,
@@ -16,9 +13,10 @@ import { router } from "expo-router";
 
 import { Ionicons } from "@expo/vector-icons";
 
+import { Screen } from "@/components/layout/screen";
 import { useAuth } from "@/context/AuthContext";
 import { useGymRegistration } from "@/context/GymRegistration";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { MAX_FONT_MULTIPLIER, useResponsive } from "@/hooks/use-responsive";
 
 type FieldName = "name" | "email" | "phone" | "password";
 
@@ -58,7 +56,7 @@ export default function Signup() {
 
   const { setUser, setToken } = useAuth();
 
-  const scrollViewRef = useRef<ScrollView>(null);
+  const { scale, fontSize, gutter, isSmallPhone } = useResponsive();
 
   const inputRefs = useRef<Record<FieldName, TextInput | null>>({
     name: null,
@@ -105,22 +103,6 @@ export default function Signup() {
       ]),
     ).start();
   }, []);
-
-  const focusInputInView = (field: FieldName) => {
-    const input = inputRefs.current[field];
-
-    if (!input) {
-      return;
-    }
-
-    setTimeout(() => {
-      scrollViewRef.current?.scrollResponderScrollNativeHandleToKeyboard(
-        input,
-        120,
-        true,
-      );
-    }, 80);
-  };
 
   // SIGNUP FUNCTION
   // const signup = async () => {
@@ -191,58 +173,52 @@ export default function Signup() {
   };
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: "#050505" }}>
-      <KeyboardAvoidingView
-        behavior={Platform.OS === "ios" ? "padding" : "height"}
-        style={{ flex: 1 }}
+    <Screen
+      bottomOffset={40}
+      contentContainerStyle={{ paddingHorizontal: gutter }}
+    >
+      <View
+        style={{
+          flex: 1,
+          backgroundColor: "#050505",
+          justifyContent: "center",
+          paddingVertical: 24,
+        }}
       >
-        <ScrollView
-          ref={scrollViewRef}
-          keyboardShouldPersistTaps="handled"
-          contentContainerStyle={{ flexGrow: 1 }}
-        >
-          <View
-            style={{
-              flex: 1,
-              backgroundColor: "#050505",
-              justifyContent: "center",
-              paddingVertical: 24,
-            }}
-          >
-            {/* GLOW */}
-            <Animated.View
-              style={{
-                position: "absolute",
-                width: "20%",
-                height: "10%",
-                borderRadius: "40%",
-                backgroundColor: "#23ee09",
-                alignSelf: "center",
-                opacity: glowAnim.interpolate({
-                  inputRange: [0.5, 1],
-                  outputRange: [0.08, 0.16],
-                }),
-              }}
-            />
+        {/* GLOW */}
+        <Animated.View
+          style={{
+            position: "absolute",
+            width: scale(260),
+            height: scale(260),
+            borderRadius: scale(130),
+            backgroundColor: "#23ee09",
+            alignSelf: "center",
+            opacity: glowAnim.interpolate({
+              inputRange: [0.5, 1],
+              outputRange: [0.08, 0.16],
+            }),
+          }}
+        />
 
-            {/* CARD */}
-            <Animated.View
-              style={{
-                backgroundColor: "#0D0D0D",
-                borderRadius: 34,
-                padding: 30,
-                borderWidth: 1,
-                borderColor: "rgba(255,255,255,0.05)",
-                opacity: fadeAnim,
-                transform: [
-                  {
-                    translateY: slideAnim,
-                  },
-                ],
-              }}
-            >
-              {/* ICON */}
-              {/* <View
+        {/* CARD */}
+        <Animated.View
+          style={{
+            backgroundColor: "#0D0D0D",
+            borderRadius: 34,
+            padding: isSmallPhone ? 22 : 30,
+            borderWidth: 1,
+            borderColor: "rgba(255,255,255,0.05)",
+            opacity: fadeAnim,
+            transform: [
+              {
+                translateY: slideAnim,
+              },
+            ],
+          }}
+        >
+          {/* ICON */}
+          {/* <View
                 style={{
                   width: "20%",
                   height: "10%",
@@ -256,192 +232,198 @@ export default function Signup() {
                 <Ionicons name="person-add" size={30} color="#23ee09" />
               </View> */}
 
-              {/* TITLE */}
-              <Text
+          {/* TITLE */}
+          <Text
+            maxFontSizeMultiplier={MAX_FONT_MULTIPLIER}
+            style={{
+              color: "white",
+              fontSize: fontSize(26),
+              fontWeight: "bold",
+              textAlign: "center",
+              // marginTop: 28,
+            }}
+          >
+            {/* Create Account */}
+            Enter gym details
+          </Text>
+
+          {/* SUBTITLE */}
+          <Text
+            style={{
+              color: "#777",
+              textAlign: "center",
+              marginTop: 10,
+              lineHeight: 22,
+              fontSize: 13,
+            }}
+          >
+            Join GymPass and access gyms{"\n"}
+            around you instantly.
+          </Text>
+
+          {/* NAME */}
+          <View style={{ marginTop: 34 }}>
+            <Text
+              style={{
+                color: "#777",
+                marginBottom: 10,
+                fontSize: 14,
+              }}
+            >
+              Owner Full Name
+            </Text>
+
+            <View
+              style={{
+                backgroundColor: "#181818",
+                borderRadius: 18,
+                paddingHorizontal: 18,
+                paddingVertical: 16,
+
+                flexDirection: "row",
+                alignItems: "center",
+              }}
+            >
+              <Ionicons name="person-outline" size={20} color="#23ee09" />
+
+              <TextInput
+                ref={(ref) => {
+                  inputRefs.current.name = ref;
+                }}
+                value={name}
+                editable={!isSubmitting}
+                onChangeText={(text) => {
+                  setName(text);
+                  setErrorMessage("");
+                }}
+                placeholder="Enter full name"
+                placeholderTextColor="#666"
+                autoComplete="name"
+                textContentType="name"
+                returnKeyType="next"
+                submitBehavior="submit"
+                onSubmitEditing={() => inputRefs.current.email?.focus()}
+                maxFontSizeMultiplier={MAX_FONT_MULTIPLIER}
                 style={{
+                  flex: 1,
                   color: "white",
-                  fontSize: 26,
-                  fontWeight: "bold",
-                  textAlign: "center",
-                  // marginTop: 28,
+                  marginLeft: 12,
+                  fontSize: 16,
                 }}
-              >
-                {/* Create Account */}
-                Enter gym details
-              </Text>
+              />
+            </View>
+          </View>
 
-              {/* SUBTITLE */}
-              <Text
+          {/* EMAIL */}
+          <View style={{ marginTop: 22 }}>
+            <Text
+              style={{
+                color: "#777",
+                marginBottom: 10,
+                fontSize: 14,
+              }}
+            >
+              Email Address
+            </Text>
+
+            <View
+              style={{
+                backgroundColor: "#181818",
+                borderRadius: 18,
+                paddingHorizontal: 18,
+                paddingVertical: 16,
+
+                flexDirection: "row",
+                alignItems: "center",
+              }}
+            >
+              <Ionicons name="mail-outline" size={20} color="#23ee09" />
+
+              <TextInput
+                ref={(ref) => {
+                  inputRefs.current.email = ref;
+                }}
+                value={email}
+                editable={!isSubmitting}
+                onChangeText={(text) => {
+                  setEmail(text);
+                  setErrorMessage("");
+                }}
+                placeholder="Enter email"
+                placeholderTextColor="#666"
+                keyboardType="email-address"
+                autoCapitalize="none"
+                autoComplete="email"
+                textContentType="emailAddress"
+                returnKeyType="next"
+                submitBehavior="submit"
+                onSubmitEditing={() => inputRefs.current.phone?.focus()}
+                maxFontSizeMultiplier={MAX_FONT_MULTIPLIER}
                 style={{
-                  color: "#777",
-                  textAlign: "center",
-                  marginTop: 10,
-                  lineHeight: 22,
-                  fontSize: 13,
+                  flex: 1,
+                  color: "white",
+                  marginLeft: 12,
+                  fontSize: 16,
                 }}
-              >
-                Join GymPass and access gyms{"\n"}
-                around you instantly.
-              </Text>
+              />
+            </View>
+          </View>
 
-              {/* NAME */}
-              <View style={{ marginTop: 34 }}>
-                <Text
-                  style={{
-                    color: "#777",
-                    marginBottom: 10,
-                    fontSize: 14,
-                  }}
-                >
-                  Owner Full Name
-                </Text>
+          {/* PHONE */}
+          <View style={{ marginTop: 22 }}>
+            <Text
+              style={{
+                color: "#777",
+                marginBottom: 10,
+                fontSize: 14,
+              }}
+            >
+              Phone Number
+            </Text>
 
-                <View
-                  style={{
-                    backgroundColor: "#181818",
-                    borderRadius: 18,
-                    paddingHorizontal: 18,
-                    paddingVertical: 16,
+            <View
+              style={{
+                backgroundColor: "#181818",
+                borderRadius: 18,
+                paddingHorizontal: 18,
+                paddingVertical: 16,
 
-                    flexDirection: "row",
-                    alignItems: "center",
-                  }}
-                >
-                  <Ionicons name="person-outline" size={20} color="#23ee09" />
+                flexDirection: "row",
+                alignItems: "center",
+              }}
+            >
+              <Ionicons name="call-outline" size={20} color="#23ee09" />
 
-                  <TextInput
-                    ref={(ref) => {
-                      inputRefs.current.name = ref;
-                    }}
-                    value={name}
-                    editable={!isSubmitting}
-                    onFocus={() => focusInputInView("name")}
-                    onChangeText={(text) => {
-                      setName(text);
-                      setErrorMessage("");
-                      focusInputInView("name");
-                    }}
-                    placeholder="Enter full name"
-                    placeholderTextColor="#666"
-                    returnKeyType="next"
-                    onSubmitEditing={() => inputRefs.current.email?.focus()}
-                    style={{
-                      flex: 1,
-                      color: "white",
-                      marginLeft: 12,
-                      fontSize: 16,
-                    }}
-                  />
-                </View>
-              </View>
+              <TextInput
+                ref={(ref) => {
+                  inputRefs.current.phone = ref;
+                }}
+                value={phone}
+                editable={!isSubmitting}
+                onChangeText={(text) => {
+                  setPhone(text);
+                  setErrorMessage("");
+                }}
+                placeholder="Enter phone number"
+                placeholderTextColor="#666"
+                keyboardType="phone-pad"
+                autoComplete="tel"
+                textContentType="telephoneNumber"
+                returnKeyType="done"
+                onSubmitEditing={raiseReq}
+                maxFontSizeMultiplier={MAX_FONT_MULTIPLIER}
+                style={{
+                  flex: 1,
+                  color: "white",
+                  marginLeft: 12,
+                  fontSize: 16,
+                }}
+              />
+            </View>
+          </View>
 
-              {/* EMAIL */}
-              <View style={{ marginTop: 22 }}>
-                <Text
-                  style={{
-                    color: "#777",
-                    marginBottom: 10,
-                    fontSize: 14,
-                  }}
-                >
-                  Email Address
-                </Text>
-
-                <View
-                  style={{
-                    backgroundColor: "#181818",
-                    borderRadius: 18,
-                    paddingHorizontal: 18,
-                    paddingVertical: 16,
-
-                    flexDirection: "row",
-                    alignItems: "center",
-                  }}
-                >
-                  <Ionicons name="mail-outline" size={20} color="#23ee09" />
-
-                  <TextInput
-                    ref={(ref) => {
-                      inputRefs.current.email = ref;
-                    }}
-                    value={email}
-                    editable={!isSubmitting}
-                    onFocus={() => focusInputInView("email")}
-                    onChangeText={(text) => {
-                      setEmail(text);
-                      setErrorMessage("");
-                      focusInputInView("email");
-                    }}
-                    placeholder="Enter email"
-                    placeholderTextColor="#666"
-                    keyboardType="email-address"
-                    autoCapitalize="none"
-                    returnKeyType="next"
-                    onSubmitEditing={() => inputRefs.current.phone?.focus()}
-                    style={{
-                      flex: 1,
-                      color: "white",
-                      marginLeft: 12,
-                      fontSize: 16,
-                    }}
-                  />
-                </View>
-              </View>
-
-              {/* PHONE */}
-              <View style={{ marginTop: 22 }}>
-                <Text
-                  style={{
-                    color: "#777",
-                    marginBottom: 10,
-                    fontSize: 14,
-                  }}
-                >
-                  Phone Number
-                </Text>
-
-                <View
-                  style={{
-                    backgroundColor: "#181818",
-                    borderRadius: 18,
-                    paddingHorizontal: 18,
-                    paddingVertical: 16,
-
-                    flexDirection: "row",
-                    alignItems: "center",
-                  }}
-                >
-                  <Ionicons name="call-outline" size={20} color="#23ee09" />
-
-                  <TextInput
-                    ref={(ref) => {
-                      inputRefs.current.phone = ref;
-                    }}
-                    value={phone}
-                    editable={!isSubmitting}
-                    onFocus={() => focusInputInView("phone")}
-                    onChangeText={(text) => {
-                      setPhone(text);
-                      setErrorMessage("");
-                      focusInputInView("phone");
-                    }}
-                    placeholder="Enter phone number"
-                    placeholderTextColor="#666"
-                    keyboardType="phone-pad"
-                    returnKeyType="next"
-                    onSubmitEditing={() => inputRefs.current.password?.focus()}
-                    style={{
-                      flex: 1,
-                      color: "white",
-                      marginLeft: 12,
-                      fontSize: 16,
-                    }}
-                  />
-                </View>
-              </View>
-
-              {/* PASSWORD */}
-              {/* <View style={{ marginTop: 22 }}>
+          {/* PASSWORD */}
+          {/* <View style={{ marginTop: 22 }}>
                 <Text
                   style={{
                     color: "#777",
@@ -496,127 +478,125 @@ export default function Signup() {
                 </View>
               </View> */}
 
-              {errorMessage ? (
-                <Animated.View
-                  style={{
-                    marginTop: 24,
-                    backgroundColor: "rgba(255,78,104,0.12)",
-                    borderRadius: 18,
-                    borderWidth: 1,
-                    borderColor: "rgba(255,78,104,0.35)",
-                    paddingHorizontal: 16,
-                    paddingVertical: 14,
-                    flexDirection: "row",
-                    alignItems: "flex-start",
-                  }}
-                >
-                  <View
-                    style={{
-                      width: 30,
-                      height: 30,
-                      borderRadius: 15,
-                      backgroundColor: "rgba(255,78,104,0.18)",
-                      justifyContent: "center",
-                      alignItems: "center",
-                      marginRight: 12,
-                    }}
-                  >
-                    <Ionicons name="alert-circle" size={18} color="#FF6B7A" />
-                  </View>
-
-                  <View style={{ flex: 1 }}>
-                    <Text
-                      style={{
-                        color: "#FFFFFF",
-                        fontSize: 14,
-                        fontWeight: "700",
-                      }}
-                    >
-                      Signup failed
-                    </Text>
-
-                    <Text
-                      style={{
-                        color: "#FFB3BC",
-                        fontSize: 13,
-                        lineHeight: 19,
-                        marginTop: 4,
-                      }}
-                    >
-                      {errorMessage}
-                    </Text>
-                  </View>
-                </Animated.View>
-              ) : null}
-
-              {/* SIGNUP BUTTON */}
-              <TouchableOpacity
-                // onPress={signup}
-                onPress={raiseReq}
-                disabled={isSubmitting}
-                activeOpacity={0.85}
+          {errorMessage ? (
+            <Animated.View
+              style={{
+                marginTop: 24,
+                backgroundColor: "rgba(255,78,104,0.12)",
+                borderRadius: 18,
+                borderWidth: 1,
+                borderColor: "rgba(255,78,104,0.35)",
+                paddingHorizontal: 16,
+                paddingVertical: 14,
+                flexDirection: "row",
+                alignItems: "flex-start",
+              }}
+            >
+              <View
                 style={{
-                  marginTop: 34,
-                  backgroundColor: "#23ee09",
-                  opacity: isSubmitting ? 0.72 : 1,
-
-                  paddingVertical: 18,
-                  borderRadius: 22,
-
+                  width: 30,
+                  height: 30,
+                  borderRadius: 15,
+                  backgroundColor: "rgba(255,78,104,0.18)",
                   justifyContent: "center",
                   alignItems: "center",
-
-                  flexDirection: "row",
+                  marginRight: 12,
                 }}
               >
-                {isSubmitting ? (
-                  <ActivityIndicator color="#050505" />
-                ) : (
-                  <Ionicons name="sparkles-outline" size={20} color="#050505" />
-                )}
+                <Ionicons name="alert-circle" size={18} color="#FF6B7A" />
+              </View>
 
+              <View style={{ flex: 1 }}>
                 <Text
                   style={{
-                    color: "#050505",
-                    fontSize: 17,
-                    fontWeight: "bold",
-                    marginLeft: 10,
-                  }}
-                >
-                  {isSubmitting ? "Raising request..." : "Raise request"}
-                </Text>
-              </TouchableOpacity>
-
-              {/* LOGIN LINK */}
-              <TouchableOpacity
-                onPress={() => router.push("/login")}
-                activeOpacity={0.8}
-                style={{
-                  marginTop: 22,
-                  alignItems: "center",
-                }}
-              >
-                <Text
-                  style={{
-                    color: "#777",
+                    color: "#FFFFFF",
                     fontSize: 14,
+                    fontWeight: "700",
                   }}
                 >
-                  Already have an account?{" "}
-                  <Text
-                    style={{
-                      color: "#23ee09",
-                      fontWeight: "600",
-                    }}
-                  >
-                    Login
-                  </Text>
+                  Signup failed
                 </Text>
-              </TouchableOpacity>
+
+                <Text
+                  style={{
+                    color: "#FFB3BC",
+                    fontSize: 13,
+                    lineHeight: 19,
+                    marginTop: 4,
+                  }}
+                >
+                  {errorMessage}
+                </Text>
+              </View>
             </Animated.View>
-          </View>
-        </ScrollView>
-      </KeyboardAvoidingView>
-    </SafeAreaView>
+          ) : null}
+
+          {/* SIGNUP BUTTON */}
+          <TouchableOpacity
+            // onPress={signup}
+            onPress={raiseReq}
+            disabled={isSubmitting}
+            activeOpacity={0.85}
+            style={{
+              marginTop: 34,
+              backgroundColor: "#23ee09",
+              opacity: isSubmitting ? 0.72 : 1,
+
+              paddingVertical: 18,
+              borderRadius: 22,
+
+              justifyContent: "center",
+              alignItems: "center",
+
+              flexDirection: "row",
+            }}
+          >
+            {isSubmitting ? (
+              <ActivityIndicator color="#050505" />
+            ) : (
+              <Ionicons name="sparkles-outline" size={20} color="#050505" />
+            )}
+
+            <Text
+              style={{
+                color: "#050505",
+                fontSize: 17,
+                fontWeight: "bold",
+                marginLeft: 10,
+              }}
+            >
+              {isSubmitting ? "Raising request..." : "Raise request"}
+            </Text>
+          </TouchableOpacity>
+
+          {/* LOGIN LINK */}
+          <TouchableOpacity
+            onPress={() => router.push("/login")}
+            activeOpacity={0.8}
+            style={{
+              marginTop: 22,
+              alignItems: "center",
+            }}
+          >
+            <Text
+              style={{
+                color: "#777",
+                fontSize: 14,
+              }}
+            >
+              Already have an account?{" "}
+              <Text
+                style={{
+                  color: "#23ee09",
+                  fontWeight: "600",
+                }}
+              >
+                Login
+              </Text>
+            </Text>
+          </TouchableOpacity>
+        </Animated.View>
+      </View>
+    </Screen>
   );
 }

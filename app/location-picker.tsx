@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { Text, TouchableOpacity, View } from "react-native";
 
 import MapView, { Marker, Region } from "react-native-maps";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import * as Location from "expo-location";
 
@@ -13,6 +14,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useLocationStore } from "../store/locationStore";
 
 export default function LocationPicker() {
+  const insets = useSafeAreaInsets();
   const { setLocation } = useLocationStore();
 
   const [region, setRegion] = useState<Region>({
@@ -91,7 +93,8 @@ export default function LocationPicker() {
         onPress={() => router.back()}
         style={{
           position: "absolute",
-          top: 60,
+          // Clear the notch / Dynamic Island / status bar on every device.
+          top: insets.top + 12,
           left: 20,
           width: 50,
           height: 50,
@@ -108,7 +111,8 @@ export default function LocationPicker() {
       <View
         style={{
           position: "absolute",
-          bottom: 40,
+          // Clear the home indicator / Android gesture or button bar.
+          bottom: insets.bottom + 20,
           left: 20,
           right: 20,
         }}
