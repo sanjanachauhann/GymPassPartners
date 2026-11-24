@@ -5,6 +5,7 @@ import mongoose from "mongoose";
 import { webcrypto } from "node:crypto";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { handleWebhook } from "./controllers/paymentController.js";
 import authRoutes from "./routes/auth.js";
 import gymPartnerRequestRoutes from "./routes/gymPartnerRequest.js";
 import gymRoutes from "./routes/gymRoutes.js";
@@ -47,6 +48,14 @@ const PORT = process.env.EXPO_PUBLIC_PORT || 5001;
 const MONGO_URI = process.env.MONGO_URI;
 
 app.use(cors());
+
+// Must come BEFORE express.json(): Cashfree signs the raw body.
+app.post(
+  "/api/payment/cashfree/webhook",
+  express.raw({ type: "*/*" }),
+  handleWebhook,
+);
+
 app.use(express.json());
 
 app.get("/", (_req, res) => {

@@ -121,6 +121,14 @@ const passSchema = new mongoose.Schema(
       enum: ["ACTIVE", "EXPIRED", "CANCELLED"],
       default: "ACTIVE",
     },
+
+    // Flags the existing /active, /scan and expiry code already read.
+    active: { type: Boolean, default: true },
+    isActive: { type: Boolean, default: true },
+
+    // Cashfree order that paid for this pass. The unique index guarantees one
+    // pass per payment, even if the webhook and the app both try to issue it.
+    orderId: { type: String, unique: true, sparse: true },
   },
   {
     timestamps: true,

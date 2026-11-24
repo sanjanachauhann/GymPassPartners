@@ -105,61 +105,14 @@ const resolveGym = async ({ gymId, gymName }) => {
   });
 };
 
-// BUY PASS
-router.post("/buy", authMiddleware, async (req, res) => {
-  try {
-    console.log("/buy...");
-    const { gymId, gymName, passType } = req.body;
-    const price = toInteger(req.body.price);
-    const normalizedPassType = normalizePassType(passType);
-    const duration = normalizedPassType
-      ? passDurations[normalizedPassType]
-      : null;
-
-    if (!price || !duration) {
-      return res.status(400).json({
-        message: "Valid price and pass duration are required",
-      });
-    }
-
-    const gym = await resolveGym({ gymId, gymName });
-
-    if (!gym) {
-      return res.status(404).json({
-        message: "Gym not found",
-      });
-    }
-
-    const expiry = buildExpiryDate(duration);
-
-    const pass = await Pass.create({
-      memberId: req.user.id,
-
-      gymId: gym._id,
-
-      gymName: gym.gymName,
-
-      price,
-
-      duration,
-
-      passType: normalizedPassType,
-
-      expiryDate: expiry,
-
-      active: true,
-
-      isActive: true,
-    });
-
-    res.json(pass);
-  } catch (error) {
-    console.log(error);
-
-    res.status(500).json({
-      message: "Server error",
-    });
-  }
+// BUY PASS - disabled. This route used to create a pass with no payment and
+// trusted the price sent by the app. Passes are now only issued after Cashfree
+// confirms payment: POST /api/payment/cashfree/pass/create-order, then
+// POST /api/payment/cashfree/pass/verify (and the webhook).
+router.post("/buy", authMiddleware, (_req, res) => {
+  res.status(410).json({
+    message: "Passes must be purchased through checkout.",
+  });
 });
 
 // GET ACTIVE PASSES
