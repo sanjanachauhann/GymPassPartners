@@ -37,6 +37,9 @@ export const createOrder = async ({
   customerName,
   customerEmail,
   customerPhone,
+  customerId,
+  orderSplits, // [{ vendor_id, amount }] - Easy Split: money routed to the vendor
+  notifyUrl, // HTTPS server-to-server webhook URL for this order
 }) => {
   const { data } = await axios.post(
     `${CASHFREE_BASE_URL}/orders`,
@@ -46,11 +49,14 @@ export const createOrder = async ({
       order_currency: "INR",
 
       customer_details: {
-        customer_id: String(customerPhone),
+        customer_id: String(customerId || customerPhone),
         customer_name: customerName,
         customer_email: customerEmail,
         customer_phone: String(customerPhone),
       },
+
+      ...(orderSplits?.length && { order_splits: orderSplits }),
+      ...(notifyUrl && { order_meta: { notify_url: notifyUrl } }),
     },
     {
       headers: getCashfreeHeaders(),

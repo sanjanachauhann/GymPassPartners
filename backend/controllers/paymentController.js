@@ -1,5 +1,7 @@
+import crypto from "node:crypto";
 import Payment from "../models/Payment.js";
 import * as cashfreeService from "../services/cashfreeService.js";
+import { issuePassForOrder } from "../services/passPurchaseService.js";
 
 // export const createOrder = async (req, res) => {
 //   try {
@@ -113,18 +115,52 @@ export const verifyPayment = async (req, res) => {
   }
 };
 
+// Cashfree signs the RAW request body, so this handler must be mounted with
+// express.raw() (see server.js), not express.json().
+const isValidWebhookSignature = (rawBody, headers) => {
+  const timestamp = headers["x-webhook-timestamp"];
+  const received = headers["x-webhook-signature"];
+
+  if (!timestamp || !received || !process.env.CASHFREE_CLIENT_SECRET) {
+    return false;
+  }
+
+  const expected = crypto
+    .createHmac("sha256", process.env.CASHFREE_CLIENT_SECRET)
+    .update(timestamp + rawBody)
+    .digest("base64");
+
+  const a = Buffer.from(expected);
+  const b = Buffer.from(received);
+
+  return a.length === b.length && crypto.timingSafeEqual(a, b);
+};
+
 export const handleWebhook = async (req, res) => {
   try {
-    const { data } = req.body;
+    const rawBody = req.body.toString("utf8");
+
+    if (!isValidWebhookSignature(rawBody, req.headers)) {
+      return res.sendStatus(401);
+    }
+
+    const { data } = JSON.parse(rawBody);
     const orderId = data?.order?.order_id;
     const status = data?.payment?.payment_status;
 
-    if (orderId) {
+    if (orderId && status === "SUCCESS") {
+      await Payment.findOneAndUpdate({ orderId }, { status: "PAID" });
+      // Pass purchases: this is what actually issues the pass, even if the
+      // member closed the app before it could call /verify.
+      await issuePassForOrder(orderId);
+    } else if (orderId && status === "FAILED") {
+      // Never overwrite an order that already succeeded.
       await Payment.findOneAndUpdate(
-        { orderId },
-        { status: status === "SUCCESS" ? "PAID" : "FAILED" },
+        { orderId, status: { $ne: "PAID" } },
+        { status: "FAILED" },
       );
     }
+
     res.sendStatus(200);
   } catch (err) {
     console.log(err.message);
